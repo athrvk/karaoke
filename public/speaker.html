@@ -14,13 +14,28 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
             text-align: center;
         }
 
         h1 {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+
+        .qr-label {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 10px;
         }
 
         button {
@@ -50,83 +65,95 @@
 </head>
 
 <body>
-    <h1>Speaker (Receiver)</h1>
+    <h1>🔊 Speaker (Receiver)</h1>
+
+    <div class="qr-container">
+        <div id="qrcode"></div>
+        <div class="qr-label">Scan to join as Mic</div>
+    </div>
+
     <button id="listenBtn">Start Listening</button>
     <div id="status" class="status">Waiting for user...</div>
 
-    <!-- Audio element for playback -->
-    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%;"></audio>
+    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%; max-width: 400px;"></audio>
 
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
+        const socket = io();
         const listenBtn = document.getElementById('listenBtn');
         const statusDiv = document.getElementById('status');
         const remoteAudio = document.getElementById('remoteAudio');
 
-        // Get Room ID
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomId = urlParams.get('room') || 'default';
-        const targetPeerId = `mic-${roomId}`;
-
-        let peer;
-
-        listenBtn.addEventListener('click', () => {
-            statusDiv.innerText = `Connecting to ${targetPeerId}...`;
-            listenBtn.style.display = 'none';
-            initPeer();
+        // Generate QR Code for Mic URL
+        const micUrl = `${window.location.origin}/mic.html`;
+        new QRCode(document.getElementById("qrcode"), {
+            text: micUrl,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
         });
 
-        function initPeer() {
-            peer = new Peer();
+        let peerConnection;
+        const iceServers = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        };
 
-            peer.on('open', (id) => {
-                console.log('My ID:', id);
-                connectToMic();
-            });
+        listenBtn.addEventListener('click', () => {
+            statusDiv.innerText = "Ready to receive...";
+            listenBtn.style.display = 'none';
+            socket.emit('register-as-speaker');
+        });
 
-            peer.on('error', (err) => {
-                console.log('Peer error:', err);
-                // Retry if peer not found immediately? usually 'call' handles it better
-            });
-        }
+        socket.on('connect', () => {
+            console.log('Connected to signaling server');
+        });
 
-        function connectToMic() {
-            console.log('Attempting call to:', targetPeerId);
+        socket.on('offer', async (payload) => {
+            console.log('Received offer from', payload.sender);
+            statusDiv.innerText = "Connecting...";
 
-            // Initiate call
-            const call = peer.call(targetPeerId, new MediaStream()); // Dummy stream to initiate
+            peerConnection = new RTCPeerConnection(iceServers);
 
-            setupCall(call);
+            peerConnection.ontrack = (event) => {
+                console.log('Received remote track');
+                remoteAudio.srcObject = event.streams[0];
+                statusDiv.innerText = "🎵 Streaming Audio (P2P)";
+                statusDiv.classList.add('connected');
+                remoteAudio.play().catch(e => console.error("Play error:", e));
+            };
 
-            // Retry logic
-            call.on('close', () => {
-                console.log('Call closed, retrying in 2s...');
-                setTimeout(connectToMic, 2000);
-            });
-
-            call.on('error', (err) => {
-                console.log('Call error', err);
-                setTimeout(connectToMic, 2000);
-            });
-
-            // If connection fails silently (peer offline), we need a timeout?
-            // PeerJS is tricky here. Usually best to just keep retrying.
-            // For MVP, we presume if 'stream' doesn't fire, we might want to re-call.
-        }
-
-        function setupCall(call) {
-            call.on('stream', (stream) => {
-                // If the stream is the dummy empty one we sent, ignore? 
-                // No, we receive the Mic's stream.
-                if (stream.getAudioTracks().length > 0) {
-                    console.log('Received active stream!');
-                    statusDiv.innerText = "Streaming Audio (P2P)";
-                    statusDiv.classList.add('connected');
-                    remoteAudio.srcObject = stream;
-                    remoteAudio.play().catch(e => console.error(e));
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        target: payload.sender,
+                        candidate: event.candidate
+                    });
                 }
+            };
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            socket.emit('answer', {
+                target: payload.sender,
+                sdp: answer
             });
-        }
+        });
+
+        socket.on('ice-candidate', async (payload) => {
+            if (peerConnection) {
+                try {
+                    await peerConnection.addIceCandidate(payload.candidate);
+                } catch (e) {
+                    console.error('Error adding received ice candidate', e);
+                }
+            }
+        });
     </script>
 </body>
 
