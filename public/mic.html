@@ -130,7 +130,7 @@
         let localStream;
         let peer;
         let isStreaming = false;
-        let callCount = 0;
+        let speakerCheckInterval;
 
         function initPeer() {
             statusDiv.innerText = `Connecting to PeerJS...`;
@@ -141,30 +141,6 @@
             peer.on('open', (id) => {
                 log(`✓ Connected! ID: ${id}`);
                 statusDiv.innerText = 'Ready to stream';
-            });
-
-            peer.on('connection', (conn) => {
-                log(`Data connection from: ${conn.peer}`);
-            });
-
-            peer.on('call', (call) => {
-                callCount++;
-                log(`✓ Incoming call #${callCount} from: ${call.peer}`);
-
-                if (isStreaming && localStream) {
-                    log(`Answering with stream...`);
-                    call.answer(localStream);
-
-                    call.on('close', () => {
-                        log(`Call closed: ${call.peer}`);
-                    });
-
-                    call.on('error', (err) => {
-                        log(`✗ Call error: ${err.message}`);
-                    });
-                } else {
-                    log(`✗ Not streaming yet, cannot answer`);
-                }
             });
 
             peer.on('error', (err) => {
@@ -179,6 +155,24 @@
 
         // Initialize PeerJS
         initPeer();
+
+        // Function to find and call speakers
+        function findAndCallSpeakers() {
+            // Look for speaker peers with pattern: speaker-{roomId}-*
+            const speakerPrefix = `speaker-${roomId}-`;
+            log(`Looking for speakers with prefix: ${speakerPrefix}`);
+
+            // Try common speaker IDs (this is a workaround since PeerJS doesn't have discovery)
+            // In production, you'd use a signaling server or database
+            // For now, we'll just wait for speakers to exist
+
+            // Alternative: Use PeerJS's listAllPeers (if available on the server)
+            // For now, we'll use a simpler approach: call known speaker IDs
+        }
+
+        // Better approach: Broadcast our presence and let speakers call us
+        // But since that's what we tried before, let's use a hybrid:
+        // Mic will periodically try to call any speaker that connects
 
         startBtn.addEventListener('click', async () => {
             if (isStreaming) {
@@ -204,18 +198,65 @@
                 });
 
                 const settings = localStream.getAudioTracks()[0].getSettings();
-                log(`✓ Audio captured: ${settings.sampleRate}Hz, ${settings.channelCount}ch`);
-                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)... Waiting for listeners.`;
+                log(`✓ Audio captured: ${settings.sampleRate}Hz, ${settings.channelCount || 'unknown'}ch`);
+                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)... Scanning for speakers.`;
                 statusDiv.classList.add('recording');
                 startBtn.innerText = 'Stop Streaming';
                 startBtn.style.background = '#ff3b30';
                 isStreaming = true;
+
+                // Start looking for speakers
+                scanForSpeakers();
 
             } catch (err) {
                 log(`✗ Error: ${err.message}`);
                 statusDiv.innerText = 'Error: ' + err.message;
             }
         });
+
+        function scanForSpeakers() {
+            log('Scanning for speakers...');
+
+            // Try to call speakers with incrementing IDs
+            // This is a workaround - ideally we'd have a discovery mechanism
+            const attempts = ['a', 'b', 'c', 'd', 'e', 'f'].map(suffix => {
+                const speakerId = `speaker-${roomId}-${suffix}`;
+                return tryCallSpeaker(speakerId);
+            });
+
+            // Also try random 6-char IDs (what our speaker generates)
+            // We'll use a polling approach
+            speakerCheckInterval = setInterval(() => {
+                // Try a few random patterns
+                for (let i = 0; i < 3; i++) {
+                    const randomId = Math.random().toString(36).substr(2, 6);
+                    const speakerId = `speaker-${roomId}-${randomId}`;
+                    tryCallSpeaker(speakerId);
+                }
+            }, 5000);
+        }
+
+        const calledSpeakers = new Set();
+
+        function tryCallSpeaker(speakerId) {
+            if (calledSpeakers.has(speakerId)) return;
+
+            log(`Trying to call: ${speakerId}`);
+            calledSpeakers.add(speakerId);
+
+            const call = peer.call(speakerId, localStream);
+
+            if (call) {
+                call.on('stream', () => {
+                    log(`✓ Connected to ${speakerId}`);
+                });
+
+                call.on('error', (err) => {
+                    // Silently fail - speaker probably doesn't exist
+                    calledSpeakers.delete(speakerId); // Allow retry
+                });
+            }
+        }
     </script>
 </body>
 

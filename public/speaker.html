@@ -125,12 +125,12 @@
         // Get Room ID
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
-        const targetPeerId = `mic-${roomId}`;
+        const myPeerId = `speaker-${roomId}-${Math.random().toString(36).substr(2, 6)}`;
 
         // Display Room ID
         roomBadge.innerText = `Room: ${roomId}`;
         log(`Room: ${roomId}`);
-        log(`Target Mic ID: ${targetPeerId}`);
+        log(`My Peer ID: ${myPeerId}`);
 
         // Generate QR Code for Mic URL
         const micUrl = `${window.location.origin}/mic.html?room=${roomId}`;
@@ -144,7 +144,6 @@
         });
 
         let peer;
-        let currentCall;
 
         listenBtn.addEventListener('click', () => {
             statusDiv.innerText = `Connecting...`;
@@ -154,74 +153,48 @@
 
         function initPeer() {
             log('Creating Peer...');
-            peer = new Peer();
+            peer = new Peer(myPeerId);
 
             peer.on('open', (id) => {
                 log(`✓ My Peer ID: ${id}`);
-                statusDiv.innerText = 'Connected to PeerJS. Calling Mic...';
-                connectToMic();
+                statusDiv.innerText = 'Waiting for Mic to connect...';
+            });
+
+            // Speaker now RECEIVES calls from Mic
+            peer.on('call', (call) => {
+                log(`✓ Incoming call from Mic!`);
+                statusDiv.innerText = 'Mic connected! Receiving stream...';
+
+                // Answer with empty stream (we're only receiving)
+                call.answer(new MediaStream());
+
+                call.on('stream', (stream) => {
+                    if (stream.getAudioTracks().length > 0) {
+                        log(`✓ Received audio stream!`);
+                        statusDiv.innerText = "🎵 Streaming Audio (P2P)";
+                        statusDiv.classList.add('connected');
+                        remoteAudio.srcObject = stream;
+                        remoteAudio.play().catch(e => {
+                            log(`✗ Play error: ${e.message}`);
+                        });
+                    }
+                });
+
+                call.on('close', () => {
+                    log('Call closed');
+                    statusDiv.innerText = 'Mic disconnected';
+                    statusDiv.classList.remove('connected');
+                });
+
+                call.on('error', (err) => {
+                    log(`✗ Call error: ${err.message}`);
+                });
             });
 
             peer.on('error', (err) => {
                 log(`✗ Peer Error: ${err.type} - ${err.message}`);
                 statusDiv.innerText = `Error: ${err.type}`;
             });
-        }
-
-        function connectToMic() {
-            log(`Calling ${targetPeerId}...`);
-            statusDiv.innerText = `Calling ${targetPeerId}...`;
-
-            // Create a dummy media stream to initiate the call
-            const dummyStream = new MediaStream();
-            currentCall = peer.call(targetPeerId, dummyStream);
-
-            if (!currentCall) {
-                log('✗ Call failed to initiate');
-                setTimeout(connectToMic, 3000);
-                return;
-            }
-
-            setupCall(currentCall);
-
-            currentCall.on('close', () => {
-                log('Call closed. Retrying in 3s...');
-                statusDiv.innerText = 'Connection lost. Retrying...';
-                setTimeout(connectToMic, 3000);
-            });
-
-            currentCall.on('error', (err) => {
-                log(`✗ Call Error: ${err.type || err.message}`);
-                statusDiv.innerText = 'Call failed. Retrying...';
-                setTimeout(connectToMic, 3000);
-            });
-        }
-
-        function setupCall(call) {
-            let streamReceived = false;
-
-            call.on('stream', (stream) => {
-                if (stream.getAudioTracks().length > 0) {
-                    streamReceived = true;
-                    log('✓ Received audio stream!');
-                    statusDiv.innerText = "🎵 Streaming Audio (P2P)";
-                    statusDiv.classList.add('connected');
-                    remoteAudio.srcObject = stream;
-                    remoteAudio.play().catch(e => {
-                        log(`✗ Play error: ${e.message}`);
-                    });
-                } else {
-                    log('⚠ Received empty stream');
-                }
-            });
-
-            // Timeout if no stream received
-            setTimeout(() => {
-                if (!streamReceived) {
-                    log('⚠ No stream after 5s. Mic may not be streaming yet.');
-                    statusDiv.innerText = 'Waiting for Mic to start streaming...';
-                }
-            }, 5000);
         }
     </script>
 </body>
