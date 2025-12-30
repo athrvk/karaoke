@@ -210,6 +210,10 @@
 
         <button class="btn btn-primary" id="startBtn">Start Streaming</button>
 
+        <button class="btn btn-secondary" id="echoBtn" style="display: none; margin-top: 12px; background: #6c757d;">
+            Enable Echo
+        </button>
+
         <div class="listeners" id="listenersBox" style="display: none;">
             <div class="listeners-count" id="listenersCount">0</div>
             <div class="listeners-label">Active Listeners</div>
@@ -296,6 +300,34 @@
             }
         });
 
+        const echoBtn = document.getElementById('echoBtn');
+        let echoEnabled = false;
+        let localAudioElement = null;
+
+        // Echo button handler
+        echoBtn.addEventListener('click', () => {
+            echoEnabled = !echoEnabled;
+
+            if (echoEnabled) {
+                // Create audio element to play back local stream
+                if (!localAudioElement) {
+                    localAudioElement = new Audio();
+                    localAudioElement.srcObject = localStream;
+                    localAudioElement.volume = 0.5; // 50% volume to avoid feedback
+                }
+                localAudioElement.play();
+                echoBtn.textContent = 'Disable Echo';
+                echoBtn.style.background = '#28cd41';
+            } else {
+                if (localAudioElement) {
+                    localAudioElement.pause();
+                    localAudioElement.srcObject = null;
+                }
+                echoBtn.textContent = 'Enable Echo';
+                echoBtn.style.background = '#6c757d';
+            }
+        });
+
         startBtn.addEventListener('click', async () => {
             if (isStreaming) {
                 location.reload();
@@ -319,6 +351,7 @@
                 startBtn.textContent = 'Stop Streaming';
                 startBtn.classList.remove('btn-primary');
                 startBtn.classList.add('btn-danger');
+                echoBtn.style.display = 'block'; // Show echo button
                 isStreaming = true;
 
             } catch (err) {
