@@ -14,13 +14,42 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
             text-align: center;
         }
 
         h1 {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .room-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+
+        #qrcode {
+            margin: 0 auto;
+        }
+
+        .qr-label {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 10px;
         }
 
         button {
@@ -32,6 +61,7 @@
             border-radius: 25px;
             cursor: pointer;
             transition: background 0.2s;
+            margin-top: 10px;
         }
 
         button:active {
@@ -50,23 +80,46 @@
 </head>
 
 <body>
-    <h1>Speaker (Receiver)</h1>
+    <h1>🔊 Speaker (Receiver)</h1>
+    <div class="room-badge" id="roomBadge">Room: Loading...</div>
+
+    <div class="qr-container">
+        <div id="qrcode"></div>
+        <div class="qr-label">Scan to connect as Mic</div>
+    </div>
+
     <button id="listenBtn">Start Listening</button>
     <div id="status" class="status">Waiting for user...</div>
 
     <!-- Audio element for playback -->
-    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%;"></audio>
+    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%; max-width: 400px;"></audio>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const listenBtn = document.getElementById('listenBtn');
         const statusDiv = document.getElementById('status');
+        const roomBadge = document.getElementById('roomBadge');
         const remoteAudio = document.getElementById('remoteAudio');
 
         // Get Room ID
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
         const targetPeerId = `mic-${roomId}`;
+
+        // Display Room ID
+        roomBadge.innerText = `Room: ${roomId}`;
+
+        // Generate QR Code for Mic URL
+        const micUrl = `${window.location.origin}/mic.html?room=${roomId}`;
+        new QRCode(document.getElementById("qrcode"), {
+            text: micUrl,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
 
         let peer;
 
@@ -86,41 +139,31 @@
 
             peer.on('error', (err) => {
                 console.log('Peer error:', err);
-                // Retry if peer not found immediately? usually 'call' handles it better
             });
         }
 
         function connectToMic() {
             console.log('Attempting call to:', targetPeerId);
 
-            // Initiate call
-            const call = peer.call(targetPeerId, new MediaStream()); // Dummy stream to initiate
+            const call = peer.call(targetPeerId, new MediaStream());
 
             setupCall(call);
 
-            // Retry logic
             call.on('close', () => {
                 console.log('Call closed, retrying in 2s...');
                 setTimeout(connectToMic, 2000);
             });
 
-            call.on('error', (err) => {
-                console.log('Call error', err);
+            call.on('error', () => {
                 setTimeout(connectToMic, 2000);
             });
-
-            // If connection fails silently (peer offline), we need a timeout?
-            // PeerJS is tricky here. Usually best to just keep retrying.
-            // For MVP, we presume if 'stream' doesn't fire, we might want to re-call.
         }
 
         function setupCall(call) {
             call.on('stream', (stream) => {
-                // If the stream is the dummy empty one we sent, ignore? 
-                // No, we receive the Mic's stream.
                 if (stream.getAudioTracks().length > 0) {
                     console.log('Received active stream!');
-                    statusDiv.innerText = "Streaming Audio (P2P)";
+                    statusDiv.innerText = "🎵 Streaming Audio (P2P)";
                     statusDiv.classList.add('connected');
                     remoteAudio.srcObject = stream;
                     remoteAudio.play().catch(e => console.error(e));

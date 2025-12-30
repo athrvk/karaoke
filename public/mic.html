@@ -14,13 +14,24 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
             text-align: center;
         }
 
         h1 {
+            margin-bottom: 1rem;
+        }
+
+        .room-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
             margin-bottom: 2rem;
+            display: inline-block;
         }
 
         button {
@@ -65,7 +76,8 @@
 </head>
 
 <body>
-    <h1>Mic Streamer (PeerJS)</h1>
+    <h1>🎙️ Mic Streamer</h1>
+    <div class="room-badge" id="roomBadge">Room: Loading...</div>
     <div style="margin-bottom: 20px;">
         <button id="startBtn">Start Streaming</button>
     </div>
@@ -82,6 +94,7 @@
     <script>
         const startBtn = document.getElementById('startBtn');
         const statusDiv = document.getElementById('status');
+        const roomBadge = document.getElementById('roomBadge');
         const silentAudio = document.getElementById('silentAudio');
 
         // Get Room ID
@@ -89,18 +102,21 @@
         const roomId = urlParams.get('room') || 'default';
         const myPeerId = `mic-${roomId}`;
 
+        // Display Room ID
+        roomBadge.innerText = `Room: ${roomId}`;
+
         let localStream;
         let peer;
         let isStreaming = false;
 
         function initPeer() {
-            statusDiv.innerText = `Connecting to Cloud... (Room: ${roomId})`;
+            statusDiv.innerText = `Connecting to Cloud...`;
 
             peer = new Peer(myPeerId);
 
             peer.on('open', (id) => {
                 console.log('My ID:', id);
-                statusDiv.innerText = 'Ready. Room: ' + roomId;
+                statusDiv.innerText = 'Ready to stream';
             });
 
             peer.on('connection', (conn) => {
@@ -143,7 +159,7 @@
                 });
 
                 const settings = localStream.getAudioTracks()[0].getSettings();
-                statusDiv.innerText = `Streaming (${settings.sampleRate}Hz)... Waiting for listeners.`;
+                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)... Waiting for listeners.`;
                 statusDiv.classList.add('recording');
                 startBtn.innerText = 'Stop Streaming';
                 startBtn.style.background = '#ff3b30';
