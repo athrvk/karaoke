@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speaker</title>
+    <title>Listener Mode - Karaoke Live</title>
     <style>
         * {
             margin: 0;
@@ -229,8 +229,8 @@
 
     <div class="container">
         <div class="header">
-            <h1>🔊 Speaker</h1>
-            <p class="subtitle">Listen to audio stream</p>
+            <h1>🎧 Listener Mode</h1>
+            <p class="subtitle">Enjoy live performances</p>
         </div>
 
         <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
@@ -240,7 +240,7 @@
 
         <div class="qr-section">
             <div id="qrcode"></div>
-            <div class="qr-label">Scan to join as Mic</div>
+            <div class="qr-label">Scan to join as Singer</div>
         </div>
 
         <div class="status-card">
@@ -251,9 +251,9 @@
         </div>
 
         <div class="mics-section" id="micsSection" style="display: none;">
-            <h3>Connected Microphones</h3>
+            <h3>Live Performers</h3>
             <div class="mic-count" id="micCount">0</div>
-            <div class="mic-count-label">Active Broadcasters</div>
+            <div class="mic-count-label">Active Singers</div>
             <div class="mic-list" id="micList"></div>
         </div>
 
@@ -342,7 +342,7 @@
         socket.on('connect', () => {
             console.log('Connected to signaling server');
             socket.emit('register-as-speaker', { room: roomId });
-            statusText.textContent = "Waiting for microphone...";
+            statusText.textContent = "Waiting for singer...";
             statusDot.classList.add('active');
         });
 
@@ -355,14 +355,14 @@
                 return;
             }
 
-            statusText.textContent = "Connecting to Mic...";
+            statusText.textContent = "Connecting to singer...";
 
             const pc = new RTCPeerConnection(iceServers);
             peerConnections[micId] = pc;
 
             pc.ontrack = (event) => {
                 console.log('Received audio track from mic');
-                statusText.textContent = "🎵 Streaming Audio";
+                statusText.textContent = "� Live Performance";
                 remoteAudio.srcObject = event.streams[0];
                 
                 // Ensure audio plays automatically
@@ -379,13 +379,13 @@
                         .catch(e => {
                             console.warn('Autoplay blocked, waiting for user interaction');
                             // Show a message to user
-                            statusText.textContent = "🎵 Click anywhere to hear audio";
+                            statusText.textContent = "� Click anywhere to hear performance";
                             
                             // Play on next user interaction
                             const playOnInteraction = () => {
                                 remoteAudio.play()
                                     .then(() => {
-                                        statusText.textContent = "🎵 Streaming Audio";
+                                        statusText.textContent = "� Live Performance";
                                     })
                                     .catch(err => console.error('Play error:', err));
                                 document.removeEventListener('click', playOnInteraction);
@@ -415,7 +415,7 @@
                     delete peerConnections[micId];
                     updateMicList();
                     if (Object.keys(peerConnections).length === 0) {
-                        statusText.textContent = "Waiting for microphone...";
+                        statusText.textContent = "Waiting for singer...";
                         remoteAudio.srcObject = null;
                     }
                 }
@@ -458,7 +458,7 @@
                 delete peerConnections[userId];
                 updateMicList();
                 if (Object.keys(peerConnections).length === 0) {
-                    statusText.textContent = "Waiting for microphone...";
+                    statusText.textContent = "Waiting for singer...";
                     remoteAudio.srcObject = null;
                 }
             }

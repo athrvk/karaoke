@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic Streamer</title>
+    <title>Singer Mode - Karaoke Live</title>
     <style>
         * {
             margin: 0;
@@ -186,8 +186,8 @@
 
     <div class="container">
         <div class="header">
-            <h1>🎙️ Microphone</h1>
-            <p class="subtitle">Stream your audio</p>
+            <h1>� Singer Mode</h1>
+            <p class="subtitle">Stream your performance live</p>
         </div>
 
         <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
@@ -213,15 +213,15 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" id="startBtn">Start Streaming</button>
+        <button class="btn btn-primary" id="startBtn">Start Performance</button>
 
         <button class="btn btn-secondary" id="echoBtn" style="display: none; margin-top: 12px; background: #6c757d;">
-            Enable Echo
+            Enable Reverb
         </button>
 
         <div class="listeners" id="listenersBox" style="display: none;">
             <div class="listeners-count" id="listenersCount">0</div>
-            <div class="listeners-label">Active Listeners</div>
+            <div class="listeners-label">Live Audience</div>
         </div>
     </div>
 
@@ -357,7 +357,7 @@
                 window.echoNodes.wetGain.gain.value = echoEnabled ? 0.5 : 0;
             }
 
-            echoBtn.textContent = echoEnabled ? 'Disable Echo' : 'Enable Echo';
+            echoBtn.textContent = echoEnabled ? 'Disable Reverb' : 'Enable Reverb';
             echoBtn.style.background = echoEnabled ? '#28cd41' : '#6c757d';
         });
 
@@ -433,10 +433,10 @@
 
                 const settings = micStream.getAudioTracks()[0].getSettings();
                 qualityEl.textContent = `${settings.sampleRate / 1000}kHz Mono`;
-                statusText.textContent = 'Streaming...';
+                statusText.textContent = 'Performing...';
                 statusDot.classList.add('active');
                 connectionEl.textContent = 'P2P';
-                startBtn.textContent = 'Stop Streaming';
+                startBtn.textContent = 'Stop Performance';
                 startBtn.classList.remove('btn-primary');
                 startBtn.classList.add('btn-danger');
                 echoBtn.style.display = 'block'; // Show echo button
