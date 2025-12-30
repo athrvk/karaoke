@@ -257,7 +257,7 @@
             <div class="mic-list" id="micList"></div>
         </div>
 
-        <audio id="remoteAudio" autoplay controls></audio>
+        <audio id="remoteAudio" autoplay playsinline controls></audio>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -288,6 +288,27 @@
 
         let peerConnections = {};
         const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        let audioUnlocked = false;
+
+        // Unlock audio on any user interaction (for browser autoplay policy)
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            
+            remoteAudio.play().then(() => {
+                audioUnlocked = true;
+                remoteAudio.pause(); // Pause immediately, will play when stream arrives
+                console.log('Audio unlocked for autoplay');
+            }).catch(() => {
+                console.log('Audio unlock pending user interaction');
+            });
+        }
+
+        // Unlock audio on any user interaction
+        document.addEventListener('click', unlockAudio, { once: true });
+        document.addEventListener('touchstart', unlockAudio, { once: true });
+        
+        // Try to unlock immediately on page load
+        unlockAudio();
 
         // Update mic list display
         function updateMicList() {
@@ -343,7 +364,37 @@
                 console.log('Received audio track from mic');
                 statusText.textContent = "🎵 Streaming Audio";
                 remoteAudio.srcObject = event.streams[0];
-                remoteAudio.play().catch(e => console.error('Audio play error:', e));
+                
+                // Ensure audio plays automatically
+                remoteAudio.muted = false;
+                remoteAudio.volume = 1.0;
+                
+                // Try to play, with fallback
+                const playPromise = remoteAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => {
+                            console.log('Audio playing successfully');
+                        })
+                        .catch(e => {
+                            console.warn('Autoplay blocked, waiting for user interaction');
+                            // Show a message to user
+                            statusText.textContent = "🎵 Click anywhere to hear audio";
+                            
+                            // Play on next user interaction
+                            const playOnInteraction = () => {
+                                remoteAudio.play()
+                                    .then(() => {
+                                        statusText.textContent = "🎵 Streaming Audio";
+                                    })
+                                    .catch(err => console.error('Play error:', err));
+                                document.removeEventListener('click', playOnInteraction);
+                                document.removeEventListener('touchstart', playOnInteraction);
+                            };
+                            document.addEventListener('click', playOnInteraction, { once: true });
+                            document.addEventListener('touchstart', playOnInteraction, { once: true });
+                        });
+                }
                 updateMicList();
             };
 
