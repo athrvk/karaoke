@@ -1,5 +1,5 @@
 server.js
-package.json
+server.js
 package-lock.json
 *.pem
 node_modules
