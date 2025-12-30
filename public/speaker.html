@@ -14,32 +14,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            height: 100vh;
             margin: 0;
-            padding: 20px;
             text-align: center;
         }
 
         h1 {
-            margin-bottom: 1rem;
-        }
-
-        .room-badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: inline-block;
-        }
-
-        .qr-container {
-            background: white;
-            padding: 20px;
-            border-radius: 16px;
-            margin: 20px 0;
-            display: inline-block;
+            margin-bottom: 2rem;
         }
 
         button {
@@ -51,7 +32,6 @@
             border-radius: 25px;
             cursor: pointer;
             transition: background 0.2s;
-            margin-top: 10px;
         }
 
         button:active {
@@ -61,156 +41,91 @@
         .status {
             margin-top: 20px;
             color: #888;
-            font-size: 0.95rem;
         }
 
         .connected {
             color: #28cd41;
         }
-
-        .debug {
-            margin-top: 20px;
-            padding: 10px;
-            background: #1c1c1e;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            max-width: 500px;
-            text-align: left;
-            color: #aaa;
-            max-height: 200px;
-            overflow-y: auto;
-        }
     </style>
 </head>
 
 <body>
-    <h1>🔊 Speaker (Receiver)</h1>
-    <div class="room-badge" id="roomBadge">Room: Loading...</div>
-
-    <div class="qr-container">
-        <div id="qrcode"></div>
-        <div style="color: #888; font-size: 0.9rem; margin-top: 10px;">Scan to connect as Mic</div>
-    </div>
-
+    <h1>Speaker (Receiver)</h1>
     <button id="listenBtn">Start Listening</button>
     <div id="status" class="status">Waiting for user...</div>
-    <div id="debug" class="debug"></div>
 
-    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%; max-width: 400px;"></audio>
+    <!-- Audio element for playback -->
+    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%;"></audio>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const listenBtn = document.getElementById('listenBtn');
         const statusDiv = document.getElementById('status');
-        const roomBadge = document.getElementById('roomBadge');
         const remoteAudio = document.getElementById('remoteAudio');
-        const debugDiv = document.getElementById('debug');
 
-        function log(msg) {
-            console.log(msg);
-            debugDiv.innerHTML += msg + '<br>';
-            debugDiv.scrollTop = debugDiv.scrollHeight;
-        }
-
+        // Get Room ID
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
         const targetPeerId = `mic-${roomId}`;
 
-        roomBadge.innerText = `Room: ${roomId}`;
-        log(`Room: ${roomId}, Target: ${targetPeerId}`);
-
-        const micUrl = `${window.location.origin}/mic.html?room=${roomId}`;
-        new QRCode(document.getElementById("qrcode"), {
-            text: micUrl,
-            width: 200,
-            height: 200,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
-
         let peer;
 
         listenBtn.addEventListener('click', () => {
-            statusDiv.innerText = `Connecting...`;
+            statusDiv.innerText = `Connecting to ${targetPeerId}...`;
             listenBtn.style.display = 'none';
             initPeer();
         });
 
         function initPeer() {
-            log('Creating Peer...');
-
-            // Add TURN server for reliable connections
-            const config = {
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        {
-                            urls: 'turn:openrelay.metered.ca:80',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject'
-                        }
-                    ]
-                }
-            };
-
-            peer = new Peer(config);
+            peer = new Peer();
 
             peer.on('open', (id) => {
-                log(`✓ My ID: ${id}`);
+                console.log('My ID:', id);
                 connectToMic();
             });
 
             peer.on('error', (err) => {
-                log(`✗ Error: ${err.type}`);
+                console.log('Peer error:', err);
+                // Retry if peer not found immediately? usually 'call' handles it better
             });
         }
 
         function connectToMic() {
-            log(`Calling ${targetPeerId}...`);
-            statusDiv.innerText = `Calling Mic...`;
+            console.log('Attempting call to:', targetPeerId);
 
-            const call = peer.call(targetPeerId, new MediaStream());
+            // Initiate call
+            const call = peer.call(targetPeerId, new MediaStream()); // Dummy stream to initiate
 
-            if (!call) {
-                log('✗ Call failed');
-                setTimeout(connectToMic, 3000);
-                return;
-            }
+            setupCall(call);
 
-            log('Call initiated, waiting for stream...');
-
-            call.on('stream', (stream) => {
-                log(`✓ Stream received! Tracks: ${stream.getTracks().length}`);
-                stream.getTracks().forEach(track => {
-                    log(`  - ${track.kind}: ${track.label}`);
-                });
-
-                statusDiv.innerText = "🎵 Streaming Audio (P2P)";
-                statusDiv.classList.add('connected');
-                remoteAudio.srcObject = stream;
-                remoteAudio.play().catch(e => log(`✗ Play: ${e.message}`));
-            });
-
+            // Retry logic
             call.on('close', () => {
-                log('Call closed, retrying...');
-                statusDiv.innerText = 'Reconnecting...';
-                setTimeout(connectToMic, 3000);
+                console.log('Call closed, retrying in 2s...');
+                setTimeout(connectToMic, 2000);
             });
 
             call.on('error', (err) => {
-                log(`✗ Call error: ${err.type}`);
-                setTimeout(connectToMic, 3000);
+                console.log('Call error', err);
+                setTimeout(connectToMic, 2000);
             });
 
-            // Timeout check
-            setTimeout(() => {
-                if (!remoteAudio.srcObject) {
-                    log('⚠ No stream after 5s, retrying...');
-                    call.close();
+            // If connection fails silently (peer offline), we need a timeout?
+            // PeerJS is tricky here. Usually best to just keep retrying.
+            // For MVP, we presume if 'stream' doesn't fire, we might want to re-call.
+        }
+
+        function setupCall(call) {
+            call.on('stream', (stream) => {
+                // If the stream is the dummy empty one we sent, ignore? 
+                // No, we receive the Mic's stream.
+                if (stream.getAudioTracks().length > 0) {
+                    console.log('Received active stream!');
+                    statusDiv.innerText = "Streaming Audio (P2P)";
+                    statusDiv.classList.add('connected');
+                    remoteAudio.srcObject = stream;
+                    remoteAudio.play().catch(e => console.error(e));
                 }
-            }, 5000);
+            });
         }
     </script>
 </body>
