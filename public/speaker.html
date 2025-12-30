@@ -257,7 +257,7 @@
             <div class="mic-list" id="micList"></div>
         </div>
 
-        <audio id="remoteAudio" autoplay playsinline controls></audio>
+        <audio id="remoteAudio" autoplay playsinline muted></audio>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -374,7 +374,12 @@
                 if (playPromise !== undefined) {
                     playPromise
                         .then(() => {
-                            console.log('Audio playing successfully');
+                            console.log('Audio playing successfully (muted)');
+                            // Unmute after a short delay to bypass autoplay restrictions
+                            setTimeout(() => {
+                                remoteAudio.muted = false;
+                                console.log('Audio unmuted - you should hear it now');
+                            }, 100);
                         })
                         .catch(e => {
                             console.warn('Autoplay blocked, waiting for user interaction');
