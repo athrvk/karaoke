@@ -362,7 +362,7 @@
 
             pc.ontrack = (event) => {
                 console.log('Received audio track from mic');
-                statusText.textContent = "� Live Performance";
+                statusText.textContent = "🎵 Live Performance";
                 remoteAudio.srcObject = event.streams[0];
                 
                 // Ensure audio plays automatically
@@ -384,13 +384,13 @@
                         .catch(e => {
                             console.warn('Autoplay blocked, waiting for user interaction');
                             // Show a message to user
-                            statusText.textContent = "� Click anywhere to hear performance";
+                            statusText.textContent = "🎵 Click anywhere to hear performance";
                             
                             // Play on next user interaction
                             const playOnInteraction = () => {
                                 remoteAudio.play()
                                     .then(() => {
-                                        statusText.textContent = "� Live Performance";
+                                        statusText.textContent = "🎵 Live Performance";
                                     })
                                     .catch(err => console.error('Play error:', err));
                                 document.removeEventListener('click', playOnInteraction);
