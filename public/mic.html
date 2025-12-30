@@ -263,7 +263,7 @@
         // Register as mic immediately when socket connects
         socket.on('connect', () => {
             connectionEl.textContent = 'Connected';
-            socket.emit('register-as-mic', { room: roomId });
+            // Don't register yet - wait until streaming starts
         });
 
         async function createPeerConnection(targetSocketId) {
@@ -441,6 +441,10 @@
                 startBtn.classList.add('btn-danger');
                 echoBtn.style.display = 'block'; // Show echo button
                 isStreaming = true;
+                
+                // Register as mic NOW (after we have the stream)
+                socket.emit('register-as-mic', { room: roomId });
+                // existing-speakers event will fire automatically from server
 
             } catch (err) {
                 statusText.textContent = 'Error: ' + err.message;
