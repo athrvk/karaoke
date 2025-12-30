@@ -36,29 +36,33 @@ app.use(express.static('public'));
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.join('default');
-
-    socket.on('register-as-mic', async () => {
-        console.log(`Socket ${socket.id} registered as Mic`);
+    socket.on('register-as-mic', async (data) => {
+        const room = data?.room || 'default';
+        console.log(`Socket ${socket.id} registered as Mic in room: ${room}`);
         socket.data.role = 'mic';
+        socket.data.room = room;
+        socket.join(room);
 
-        // Find existing speakers
-        const sockets = await io.in('default').fetchSockets();
+        // Find existing speakers in this room
+        const sockets = await io.in(room).fetchSockets();
         const speakerIds = sockets
             .filter(s => s.data.role === 'speaker' && s.id !== socket.id)
             .map(s => s.id);
 
         if (speakerIds.length > 0) {
-            console.log(`Sending ${speakerIds.length} existing speakers to new Mic`);
+            console.log(`Sending ${speakerIds.length} existing speakers to Mic in room ${room}`);
             socket.emit('existing-speakers', speakerIds);
         }
     });
 
-    socket.on('register-as-speaker', () => {
-        console.log(`Socket ${socket.id} registered as Speaker`);
+    socket.on('register-as-speaker', (data) => {
+        const room = data?.room || 'default';
+        console.log(`Socket ${socket.id} registered as Speaker in room: ${room}`);
         socket.data.role = 'speaker';
-        // Notify everyone (Mics) that a new speaker joined
-        socket.to('default').emit('user-joined', socket.id);
+        socket.data.room = room;
+        socket.join(room);
+        // Notify mics in this room that a new speaker joined
+        socket.to(room).emit('user-joined', socket.id);
     });
 
     // Signaling Events - Now Targeted
@@ -91,8 +95,10 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Notify others to cleanup
-        socket.to('default').emit('user-left', socket.id);
+        const room = socket.data.room;
+        if (room) {
+            socket.to(room).emit('user-left', socket.id);
+        }
     });
 });
 
