@@ -1,17 +1,27 @@
 const express = require('express');
+const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const { Server } = require('socket.io');
 
 const app = express();
 
-const options = {
-    key: fs.readFileSync('key.pem'),
-    cert: fs.readFileSync('cert.pem')
-};
+// Use HTTPS for local development, HTTP for production (Render handles SSL)
+let server;
+const useHTTPS = process.env.NODE_ENV !== 'production' && fs.existsSync('key.pem');
 
-const server = https.createServer(options, app);
-// Disable compression for lower latency signaling (though impact is minimal for signaling objects)
+if (useHTTPS) {
+    const options = {
+        key: fs.readFileSync('key.pem'),
+        cert: fs.readFileSync('cert.pem')
+    };
+    server = https.createServer(options, app);
+    console.log('Using HTTPS (local development)');
+} else {
+    server = http.createServer(app);
+    console.log('Using HTTP (production - SSL handled by platform)');
+}
+
 const io = new Server(server, {
     httpCompression: false,
     cors: {
@@ -86,7 +96,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Signaling Server running on https://0.0.0.0:${PORT}`);
+    console.log(`Signaling Server running on ${useHTTPS ? 'https' : 'http'}://0.0.0.0:${PORT}`);
 });
