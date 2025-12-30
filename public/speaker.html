@@ -258,6 +258,11 @@
         </div>
 
         <audio id="remoteAudio" autoplay playsinline muted></audio>
+        <audio id="silentAudio" loop playsinline style="display:none;">
+            <source
+                src="data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAOAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                type="audio/mp3">
+        </audio>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -267,6 +272,7 @@
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const remoteAudio = document.getElementById('remoteAudio');
+        const silentAudio = document.getElementById('silentAudio');
         const micsSection = document.getElementById('micsSection');
         const micCount = document.getElementById('micCount');
         const micList = document.getElementById('micList');
@@ -293,13 +299,12 @@
         // Unlock audio on any user interaction (for browser autoplay policy)
         function unlockAudio() {
             if (audioUnlocked) return;
-            
-            remoteAudio.play().then(() => {
+            // Play silent audio to unlock the audio engine
+            silentAudio.play().then(() => {
                 audioUnlocked = true;
-                remoteAudio.pause(); // Pause immediately, will play when stream arrives
                 console.log('Audio unlocked for autoplay');
-            }).catch(() => {
-                console.log('Audio unlock pending user interaction');
+            }).catch((e) => {
+                console.log('Audio unlock pending user interaction', e);
             });
         }
 
@@ -364,30 +369,31 @@
                 console.log('Received audio track from mic');
                 statusText.textContent = "🎵 Live Performance";
                 remoteAudio.srcObject = event.streams[0];
+                // Start muted to satisfy autoplay policy
+                remoteAudio.muted = true;
                 
-                // Ensure audio plays automatically
-                remoteAudio.muted = false;
-                remoteAudio.volume = 1.0;
-                
-                // Try to play, with fallback
+                // Try to play
                 const playPromise = remoteAudio.play();
                 if (playPromise !== undefined) {
                     playPromise
                         .then(() => {
                             console.log('Audio playing successfully (muted)');
-                            // Unmute after a short delay to bypass autoplay restrictions
+                            // Unmute after a short delay
                             setTimeout(() => {
                                 remoteAudio.muted = false;
+                                remoteAudio.volume = 1.0;
                                 console.log('Audio unmuted - you should hear it now');
-                            }, 100);
+                            }, 500);
                         })
                         .catch(e => {
-                            console.warn('Autoplay blocked, waiting for user interaction');
+                            console.warn('Autoplay blocked, waiting for user interaction', e);
                             // Show a message to user
                             statusText.textContent = "🎵 Click anywhere to hear performance";
                             
                             // Play on next user interaction
                             const playOnInteraction = () => {
+                                remoteAudio.muted = false;
+                                remoteAudio.volume = 1.0;
                                 remoteAudio.play()
                                     .then(() => {
                                         statusText.textContent = "🎵 Live Performance";
