@@ -1,4 +1,0 @@
-server.js
-*.pem
-node_modules
-.env
