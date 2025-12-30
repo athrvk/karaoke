@@ -238,6 +238,10 @@
         const listenersCount = document.getElementById('listenersCount');
         const silentAudio = document.getElementById('silentAudio');
 
+        // Get room ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room') || 'default';
+
         let localStream;
         const peerConnections = {};
         let isStreaming = false;
@@ -336,7 +340,7 @@
 
             try {
                 silentAudio.play().catch(e => console.log(e));
-                socket.emit('register-as-mic');
+                socket.emit('register-as-mic', { room: roomId });
 
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { channelCount: 2, sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: 0 },

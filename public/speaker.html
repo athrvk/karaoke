@@ -184,7 +184,11 @@
         const statusText = document.getElementById('statusText');
         const remoteAudio = document.getElementById('remoteAudio');
 
-        const micUrl = `${window.location.origin}/mic.html`;
+        // Get room ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room') || 'default';
+
+        const micUrl = `${window.location.origin}/mic.html?room=${roomId}`;
         new QRCode(document.getElementById("qrcode"), {
             text: micUrl,
             width: 200,
@@ -201,7 +205,7 @@
             statusText.textContent = "Ready to receive...";
             statusDot.classList.add('active');
             listenBtn.style.display = 'none';
-            socket.emit('register-as-speaker');
+            socket.emit('register-as-speaker', { room: roomId });
         });
 
         socket.on('connect', () => {
