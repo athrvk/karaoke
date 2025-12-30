@@ -168,6 +168,11 @@
             <p class="subtitle">Listen to audio stream</p>
         </div>
 
+        <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            <div style="font-size: 0.75rem; color: #1976d2; text-transform: uppercase; letter-spacing: 0.5px;">Room ID</div>
+            <div style="font-size: 1.1rem; font-weight: 600; color: #0d47a1; font-family: monospace;" id="roomDisplay"></div>
+        </div>
+
         <div class="qr-section">
             <div id="qrcode"></div>
             <div class="qr-label">Scan to join as Mic</div>
@@ -197,6 +202,7 @@
         // Get room ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
+        document.getElementById('roomDisplay').textContent = roomId;
 
         const micUrl = `${window.location.origin}/mic.html?room=${roomId}`;
         new QRCode(document.getElementById("qrcode"), {
@@ -208,56 +214,107 @@
             correctLevel: QRCode.CorrectLevel.H
         });
 
-        let peerConnection;
+        let peerConnections = {};
+        let isListening = false;
         const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         listenBtn.addEventListener('click', () => {
-            statusText.textContent = "Ready to receive...";
-            statusDot.classList.add('active');
-            listenBtn.style.display = 'none';
-            socket.emit('register-as-speaker', { room: roomId });
+            if (!isListening) {
+                statusText.textContent = "Ready to receive...";
+                statusDot.classList.add('active');
+                listenBtn.style.display = 'none';
+                isListening = true;
+            }
         });
 
+        // Auto-register speaker on connect
         socket.on('connect', () => {
             console.log('Connected to signaling server');
+            socket.emit('register-as-speaker', { room: roomId });
+            statusText.textContent = "Waiting for microphone...";
+            statusDot.classList.add('active');
         });
 
         socket.on('offer', async (payload) => {
+            const micId = payload.sender;
+            
+            // Prevent duplicate connections
+            if (peerConnections[micId]) {
+                console.log(`Already connected to mic ${micId}`);
+                return;
+            }
+
             statusText.textContent = "Connecting to Mic...";
+            listenBtn.style.display = 'none';
 
-            peerConnection = new RTCPeerConnection(iceServers);
+            const pc = new RTCPeerConnection(iceServers);
+            peerConnections[micId] = pc;
 
-            peerConnection.ontrack = (event) => {
+            pc.ontrack = (event) => {
+                console.log('Received audio track from mic');
                 statusText.textContent = "🎵 Streaming Audio";
                 remoteAudio.srcObject = event.streams[0];
-                remoteAudio.play().catch(e => console.error(e));
+                remoteAudio.play().catch(e => console.error('Audio play error:', e));
             };
 
-            peerConnection.onicecandidate = (event) => {
+            pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit('ice-candidate', {
-                        target: payload.sender,
+                        target: micId,
                         candidate: event.candidate
                     });
                 }
             };
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
+            pc.onconnectionstatechange = () => {
+                console.log(`Connection to mic ${micId}: ${pc.connectionState}`);
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    pc.close();
+                    delete peerConnections[micId];
+                    if (Object.keys(peerConnections).length === 0) {
+                        statusText.textContent = "Waiting for microphone...";
+                        remoteAudio.srcObject = null;
+                    }
+                }
+            };
 
-            socket.emit('answer', {
-                target: payload.sender,
-                sdp: answer
-            });
+            pc.oniceconnectionstatechange = () => {
+                console.log(`ICE connection to mic ${micId}: ${pc.iceConnectionState}`);
+            };
+
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                socket.emit('answer', {
+                    target: micId,
+                    sdp: answer
+                });
+            } catch (err) {
+                console.error('Error handling offer:', err);
+                delete peerConnections[micId];
+            }
         });
 
         socket.on('ice-candidate', async (payload) => {
-            if (peerConnection) {
+            const pc = peerConnections[payload.sender];
+            if (pc && payload.candidate) {
                 try {
-                    await peerConnection.addIceCandidate(payload.candidate);
+                    await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
                 } catch (e) {
-                    console.error(e);
+                    console.error('Error adding ICE candidate:', e);
+                }
+            }
+        });
+
+        socket.on('user-left', (userId) => {
+            if (peerConnections[userId]) {
+                peerConnections[userId].close();
+                delete peerConnections[userId];
+                if (Object.keys(peerConnections).length === 0) {
+                    statusText.textContent = "Waiting for microphone...";
+                    remoteAudio.srcObject = null;
                 }
             }
         });

@@ -190,6 +190,11 @@
             <p class="subtitle">Stream your audio</p>
         </div>
 
+        <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            <div style="font-size: 0.75rem; color: #1976d2; text-transform: uppercase; letter-spacing: 0.5px;">Room ID</div>
+            <div style="font-size: 1.1rem; font-weight: 600; color: #0d47a1; font-family: monospace;" id="roomDisplay"></div>
+        </div>
+
         <div class="status-card">
             <div class="status-indicator">
                 <div class="status-dot" id="statusDot"></div>
@@ -241,15 +246,19 @@
         // Get room ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
+        document.getElementById('roomDisplay').textContent = roomId;
 
         let localStream;
         const peerConnections = {};
         let isStreaming = false;
+        let audioWorkletNode = null;
 
         const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
+        // Register as mic immediately when socket connects
         socket.on('connect', () => {
             connectionEl.textContent = 'Connected';
+            socket.emit('register-as-mic', { room: roomId });
         });
 
         async function createPeerConnection(targetSocketId) {
@@ -269,15 +278,29 @@
             };
 
             pc.onconnectionstatechange = () => {
+                console.log(`Connection to ${targetSocketId}: ${pc.connectionState}`);
+                if (pc.connectionState === 'connected') {
+                    connectionEl.textContent = 'P2P Active';
+                }
                 if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    pc.close();
                     delete peerConnections[targetSocketId];
                     updateListenerCount();
                 }
             };
 
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit('offer', { target: targetSocketId, sdp: offer });
+            pc.oniceconnectionstatechange = () => {
+                console.log(`ICE connection to ${targetSocketId}: ${pc.iceConnectionState}`);
+            };
+
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                socket.emit('offer', { target: targetSocketId, sdp: offer });
+            } catch (err) {
+                console.error('Error creating offer:', err);
+                delete peerConnections[targetSocketId];
+            }
 
             updateListenerCount();
         }
@@ -306,30 +329,20 @@
 
         const echoBtn = document.getElementById('echoBtn');
         let echoEnabled = false;
-        let localAudioElement = null;
 
-        // Echo button handler
+        // Echo button handler - communicates with audio-processor.js
         echoBtn.addEventListener('click', () => {
             echoEnabled = !echoEnabled;
-
-            if (echoEnabled) {
-                // Create audio element to play back local stream
-                if (!localAudioElement) {
-                    localAudioElement = new Audio();
-                    localAudioElement.srcObject = localStream;
-                    localAudioElement.volume = 0.5; // 50% volume to avoid feedback
-                }
-                localAudioElement.play();
-                echoBtn.textContent = 'Disable Echo';
-                echoBtn.style.background = '#28cd41';
-            } else {
-                if (localAudioElement) {
-                    localAudioElement.pause();
-                    localAudioElement.srcObject = null;
-                }
-                echoBtn.textContent = 'Enable Echo';
-                echoBtn.style.background = '#6c757d';
+            
+            if (audioWorkletNode) {
+                audioWorkletNode.port.postMessage({
+                    type: 'toggle-echo',
+                    value: echoEnabled
+                });
             }
+
+            echoBtn.textContent = echoEnabled ? 'Disable Echo' : 'Enable Echo';
+            echoBtn.style.background = echoEnabled ? '#28cd41' : '#6c757d';
         });
 
         startBtn.addEventListener('click', async () => {
@@ -340,14 +353,34 @@
 
             try {
                 silentAudio.play().catch(e => console.log(e));
-                socket.emit('register-as-mic', { room: roomId });
 
-                localStream = await navigator.mediaDevices.getUserMedia({
+                // Get original microphone stream
+                const micStream = await navigator.mediaDevices.getUserMedia({
                     audio: { channelCount: 2, sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: 0 },
                     video: false
                 });
 
-                const settings = localStream.getAudioTracks()[0].getSettings();
+                // Set up audio worklet for echo effect
+                const audioContext = new AudioContext({ sampleRate: 48000 });
+                await audioContext.audioWorklet.addModule('/audio-processor.js');
+                
+                const source = audioContext.createMediaStreamSource(micStream);
+                audioWorkletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                
+                // Create destination to capture processed audio as MediaStream
+                const destination = audioContext.createMediaStreamDestination();
+                
+                // Connect: source -> worklet -> destination (for WebRTC)
+                source.connect(audioWorkletNode);
+                audioWorkletNode.connect(destination);
+                
+                // Also connect to speakers for local monitoring (optional)
+                // audioWorkletNode.connect(audioContext.destination);
+                
+                // Use the processed stream for WebRTC
+                localStream = destination.stream;
+
+                const settings = micStream.getAudioTracks()[0].getSettings();
                 qualityEl.textContent = `${settings.sampleRate / 1000}kHz`;
                 statusText.textContent = 'Streaming...';
                 statusDot.classList.add('active');
@@ -370,11 +403,11 @@
 
         socket.on('ice-candidate', async (payload) => {
             const pc = peerConnections[payload.sender];
-            if (pc) {
+            if (pc && payload.candidate) {
                 try {
-                    await pc.addIceCandidate(payload.candidate);
+                    await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
                 } catch (e) {
-                    console.error(e);
+                    console.error('Error adding ICE candidate:', e);
                 }
             }
         });

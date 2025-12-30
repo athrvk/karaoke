@@ -141,6 +141,56 @@
             color: #666;
             font-size: 0.85rem;
         }
+
+        .info-section {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .info-section h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .info-item-icon {
+            font-size: 1rem;
+            margin-top: 2px;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .tech-badge {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: #667eea;
+            font-weight: 600;
+            border: 1px solid #e0e0e0;
+        }
     </style>
 </head>
 
@@ -174,6 +224,40 @@
                     <p>Listen to audio in this room</p>
                 </div>
             </a>
+        </div>
+
+        <div class="info-section">
+            <h3>Features</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-item-icon">🎵</span>
+                    <span>48kHz stereo audio with real-time processing</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">🌐</span>
+                    <span>Peer-to-peer WebRTC connections (low latency)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">🔊</span>
+                    <span>Multiple listeners per room</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">✨</span>
+                    <span>Optional echo effect (300ms delay)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">🔒</span>
+                    <span>Private rooms with unique IDs</span>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 16px;">Powered By</h3>
+            <div class="tech-stack">
+                <span class="tech-badge">WebRTC</span>
+                <span class="tech-badge">Socket.IO</span>
+                <span class="tech-badge">Web Audio API</span>
+                <span class="tech-badge">AudioWorklet</span>
+            </div>
         </div>
     </div>
 

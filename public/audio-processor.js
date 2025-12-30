@@ -1,7 +1,7 @@
 class PCMProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
-        this.bufferSize = 48000 * 0.5; // 0.5 seconds delay buffer
+        this.bufferSize = 48000 * 0.3; // 0.3 seconds delay buffer
         this.bufferL = new Float32Array(this.bufferSize);
         this.bufferR = new Float32Array(this.bufferSize);
         this.writeIndex = 0;
