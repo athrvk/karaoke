@@ -1,289 +1,118 @@
-# Mic-to-Speaker P2P Audio Streamer
+# 🎤 Karaoke Live - P2P Audio Streamer
 
-WebRTC-based peer-to-peer audio streaming with Socket.IO signaling. Stream high-quality audio from one device (microphone) to multiple listeners (speakers) with real-time audio processing.
+A high-performance, low-latency peer-to-peer audio streaming application. Turn any device (phone, tablet, laptop) into a microphone and stream audio directly to another device (connected to speakers/TV) over WiFi.
 
-## Features
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D14.0.0-green.svg)
 
-- 🎙️ **High-Quality Audio**: 48kHz stereo streaming with no compression
-- 🔊 **Multiple Listeners**: One broadcaster to unlimited listeners
-- 🎵 **Real-Time Effects**: Native Web Audio API processing with echo effect (300ms delay)
-- 🌐 **P2P Connection**: Direct peer-to-peer audio streaming (low latency)
-- 🔒 **Room System**: Private rooms with unique IDs for isolated sessions
-- 📱 **QR Code Support**: Easy mobile device connection
-- 🔄 **Auto-Discovery**: Automatic peer detection and connection
-- 📡 **Connection Monitoring**: Real-time connection state tracking
-- 📊 **Listener Count**: See how many people are listening live
+## ✨ Features
 
-## How It Works
+- 🎙️ **Ultra-Low Latency**: Direct P2P WebRTC connection (audio doesn't go through the server).
+- 📱 **Fully Responsive**: Optimized UI for Mobile, Tablet, Desktop, and **TV** interfaces.
+- 🔊 **One-to-Many**: One singer can stream to multiple listener devices simultaneously.
+- 🎵 **Audio Effects**: Optional toggleable **Reverb/Echo** effect for karaoke vibes.
+- 🔒 **Room System**: Private rooms with unique IDs for isolated sessions.
+- 🔗 **Easy Connection**: QR Code generation for instant mobile pairing.
+- 🛠️ **Smart Autoplay**: "Silent Audio" unlock mechanism to bypass browser autoplay restrictions.
+- ⚡ **Optimized Audio**: 
+  - 48kHz Mono (lower bandwidth, lower latency).
+  - Disabled browser processing (echo cancellation/noise suppression) for raw audio.
+  - Tuned Opus codec settings.
 
-### Architecture Overview
+## 🏗️ Architecture
 
-```
-Microphone Device    Signaling Server    Speaker Devices
-      │                    │                    │
-      ├──register-as-mic──>│                    │
-      │                    │<─register-as-speaker─┤
-      │<──existing-speakers─┤                    │
-      │                    │                    │
-      ├──────offer──────>│────offer──────>┤
-      │<─────answer──────┤<───answer───────┤
-      │                    │                    │
-      │    ICE Candidates   │   ICE Candidates   │
-      ├─────────────────>│<─────────────────┤
-      │                    │                    │
-      ╰────────────────────────────────────────╯
-             Direct P2P Audio Stream (SRTP)
-             Server is NOT in the audio path!
-```
+The application uses a **Signaling Server** (Node.js) only to establish the connection. Once connected, audio flows directly between devices.
 
-### Audio Processing Pipeline
+```mermaid
+graph TD
+    subgraph "Signaling Phase (Socket.IO)"
+    Mic[Microphone Device] -- 1. Register/Offer --> Server[Node.js Server]
+    Server -- 2. Forward Offer --> Speaker[Speaker Device]
+    Speaker -- 3. Answer --> Server
+    Server -- 4. Forward Answer --> Mic
+    end
 
-```
-Microphone Hardware
-      ↓
-getUserMedia() - Capture 48kHz stereo
-      ↓
-Web Audio API Processing
-      │
-      ├─> Echo Effect (optional)
-      │   - DelayNode (300ms)
-      │   - GainNodes (20% feedback)
-      │   - Feedback loop
-      ↓
-MediaStreamDestination
-      ↓
-WebRTC RTCPeerConnection
-      ↓
-P2P SRTP Transmission
-      ↓
-Speaker's RTCPeerConnection
-      ↓
-<audio> element playback
-      ↓
-Speaker Hardware
+    subgraph "Streaming Phase (WebRTC)"
+    Mic == "5. Direct Audio Stream (SRTP)" ==> Speaker
+    end
 ```
 
-## Technology Stack
+## 🚀 Getting Started
 
-### Server
-- **Node.js** + **Express**: Web server
-- **Socket.IO**: WebRTC signaling (WebSocket)
-- **HTTPS/HTTP**: SSL support for local dev
-
-### Client
-- **WebRTC**: P2P audio streaming
-- **Web Audio API**: Real-time audio processing with native nodes
-- **MediaStream API**: Microphone capture
-
-## Local Development
+### Prerequisites
+- Node.js (v14 or higher)
+- SSL Certificates (Required for microphone access on non-localhost devices)
 
 ### Installation
 
-```bash
-npm install
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/micToBtSpeaker.git
+   cd micToBtSpeaker
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. **Important: SSL Setup**
+   Browsers block microphone access on non-secure (HTTP) connections unless it's `localhost`. To use this on your phone/network, you need HTTPS.
+   
+   Generate self-signed certificates:
+   ```bash
+   openssl req -nodes -new -x509 -keyout key.pem -out cert.pem
+   ```
+
+4. Start the server:
+   ```bash
+   npm start
+   ```
+
+5. Access the app:
+   - **On your computer (Speaker):** `https://localhost:3000`
+   - **On your phone (Mic):** `https://<YOUR_COMPUTER_IP>:3000`
+   *(Note: You will see a security warning because of the self-signed cert. Click "Advanced" -> "Proceed" to continue.)*
+
+## 📱 Usage Guide
+
+1. **Open the App**: Navigate to the home page.
+2. **Create a Room**: Enter a Room ID or generate a new one.
+3. **Join as Listener (Speaker)**:
+   - Click "Listener Mode".
+   - Connect your device to Bluetooth speakers or a TV.
+   - A QR code will appear.
+4. **Join as Singer (Mic)**:
+   - Scan the QR code with your phone OR navigate to the URL manually.
+   - Click "Singer Mode".
+   - Grant microphone permissions.
+   - Click **"Start Performance"**.
+5. **Sing!**: Your voice will be streamed instantly to the speaker. Toggle "Enable Reverb" for effects.
+
+## 🛠️ Technical Details
+
+### Audio Pipeline
+1. **Capture**: `navigator.mediaDevices.getUserMedia` (Mono, 48kHz, No Processing).
+2. **Processing (Optional)**: Web Audio API `DelayNode` + `GainNode` for Reverb.
+3. **Encoding**: Opus Codec (CBR, 510kbps max bitrate).
+4. **Transport**: WebRTC `RTCPeerConnection` (UDP).
+
+### Project Structure
+```
+/
+├── server.js           # Node.js Signaling Server
+├── package.json        # Dependencies
+├── public/
+│   ├── index.html      # Landing Page
+│   ├── mic.html        # Singer Interface (Sender)
+│   ├── speaker.html    # Listener Interface (Receiver)
+│   └── style.css       # Shared Responsive Styles
 ```
 
-### Start Server
+## 🤝 Contributing
 
-```bash
-npm start
-```
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Access Application
+## 📄 License
 
-- **Local**: `http://localhost:3000`
-- **Network**: `http://<YOUR_IP>:3000`
-- **HTTPS** (if certs exist): `https://<YOUR_IP>:3000`
-
-### Generate Self-Signed Certificates (Optional)
-
-For HTTPS in local development:
-
-```bash
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
-```
-
-## Usage
-
-### 1. Create or Join Room
-- Open the application in browser
-- Generate a new room ID or enter an existing one
-- Share the room ID with others
-
-### 2. Start as Speaker (Listener)
-- Click **"Speaker"** card
-- Page auto-registers to room
-- Wait for microphone to connect
-- Audio plays automatically when mic starts
-
-### 3. Start as Microphone (Broadcaster)
-- Click **"Microphone"** card
-- Click **"Start Streaming"** button
-- Grant microphone permissions
-- Audio streams to all connected speakers
-- Optional: Enable **Echo** effect for reverb
-
-### 4. Multiple Listeners
-- Any number of speakers can join the same room
-- Each gets a separate P2P connection from the mic
-- Mic shows active listener count
-
-## Configuration
-
-### Audio Settings (mic.html)
-
-```javascript
-{
-  channelCount: 2,          // Stereo
-  sampleRate: 48000,        // 48kHz
-  echoCancellation: false,  // No processing
-  noiseSuppression: false,  // No processing
-  autoGainControl: false,   // No processing
-  latency: 0                // Minimal latency
-}
-```
-
-### Echo Effect Parameters (mic.html)
-
-```javascript
-delayTime: 0.3        // 300ms delay
-feedback: 0.2         // 20% feedback gain
-wetGain: 0.5          // 50% echo mix when enabled
-```
-
-### ICE Servers
-
-```javascript
-iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' }
-]
-```
-
-## Deployment
-
-### Recommended Platforms
-- ✅ **Railway**: Full WebSocket support
-- ✅ **Render**: Full WebSocket support
-- ✅ **Heroku**: Full WebSocket support
-- ❌ **Vercel**: Not recommended (serverless, no persistent connections)
-
-### Environment Variables
-
-```bash
-PORT=3000                    # Server port
-NODE_ENV=production          # Use HTTP (platform handles SSL)
-```
-
-### Deploy to Railway
-
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login and deploy
-railway login
-railway init
-railway up
-```
-
-### Deploy to Render
-
-1. Connect GitHub repository
-2. Set build command: `npm install`
-3. Set start command: `npm start`
-4. Deploy
-
-## Project Structure
-
-```
-.
-├── server.js                 # Socket.IO signaling server
-├── package.json              # Dependencies
-└── public/
-    ├── index.html            # Landing page (room selection)
-    ├── mic.html              # Microphone broadcaster page
-    └── speaker.html          # Speaker listener page
-```
-
-## How WebRTC Connection Works
-
-### 1. Registration Phase
-- Mic and speakers register to server with room ID
-- Server tracks all participants per room
-- Server notifies mic of existing speakers
-
-### 2. Offer/Answer Exchange
-- Mic creates WebRTC offer (SDP) for each speaker
-- Server relays offer to target speaker
-- Speaker creates answer (SDP)
-- Server relays answer back to mic
-
-### 3. ICE Candidate Exchange
-- Both peers discover network paths (STUN)
-- Candidates exchanged through server
-- Best path selected automatically
-
-### 4. P2P Connection Established
-- Direct connection formed
-- Audio flows peer-to-peer
-- Server no longer in data path
-
-## Troubleshooting
-
-### No Audio Heard
-- Check browser microphone permissions
-- Verify speakers are in same room
-- Check browser console for errors
-- Ensure WebRTC is supported (modern browsers)
-
-### Connection Failed
-- Firewall may block WebRTC
-- Try different network
-- Check ICE connection state in console
-- Verify STUN server is reachable
-
-### Echo/Feedback
-- Don't use echo effect with speaker on same device
-- Use headphones on speaker devices
-- Reduce speaker volume
-
-### High Latency
-- P2P should be low latency (~100-300ms)
-- Check network quality
-- Reduce distance between peers if on same network
-
-## Browser Support
-
-- ✅ Chrome 74+
-- ✅ Firefox 76+
-- ✅ Safari 14.1+
-- ✅ Edge 79+
-- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
-
-## Use Cases
-
-- 🎸 **Live Music Performance**: Stream to remote audience
-- 🎧 **DJ Mixing**: Broadcast live DJ sets
-- 🎙️ **Podcasting**: Multi-listener recording sessions
-- 🎹 **Remote Jamming**: Musicians collaborate remotely
-- 📡 **Audio Monitoring**: Monitor remote audio sources
-- 🎭 **Theater/Events**: Wireless audio distribution
-
-## License
-
-MIT
-
-## Contributing
-
-Pull requests welcome! Please ensure:
-- Code follows existing style
-- Test in multiple browsers
-- Update documentation if needed
-
-## Security Notes
-
-- Audio streams are encrypted (SRTP)
-- Room IDs are not secret - treat as public
-- No authentication implemented
-- Server does not store or record audio
-- Suitable for trusted networks or add auth layer
+This project is licensed under the MIT License.
