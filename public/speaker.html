@@ -185,8 +185,6 @@
             </div>
         </div>
 
-        <button class="btn" id="listenBtn">Start Listening</button>
-
         <audio id="remoteAudio" autoplay controls></audio>
     </div>
 
@@ -194,7 +192,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const socket = io();
-        const listenBtn = document.getElementById('listenBtn');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const remoteAudio = document.getElementById('remoteAudio');
@@ -215,19 +212,9 @@
         });
 
         let peerConnections = {};
-        let isListening = false;
         const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-        listenBtn.addEventListener('click', () => {
-            if (!isListening) {
-                statusText.textContent = "Ready to receive...";
-                statusDot.classList.add('active');
-                listenBtn.style.display = 'none';
-                isListening = true;
-            }
-        });
-
-        // Auto-register speaker on connect
+        // Auto-register speaker on connect and start listening immediately
         socket.on('connect', () => {
             console.log('Connected to signaling server');
             socket.emit('register-as-speaker', { room: roomId });
@@ -245,7 +232,6 @@
             }
 
             statusText.textContent = "Connecting to Mic...";
-            listenBtn.style.display = 'none';
 
             const pc = new RTCPeerConnection(iceServers);
             peerConnections[micId] = pc;
