@@ -6,7 +6,7 @@ WebRTC-based peer-to-peer audio streaming with Socket.IO signaling. Stream high-
 
 - 🎙️ **High-Quality Audio**: 48kHz stereo streaming with no compression
 - 🔊 **Multiple Listeners**: One broadcaster to unlimited listeners
-- 🎵 **Real-Time Effects**: Audio worklet processing with echo effect (300ms delay)
+- 🎵 **Real-Time Effects**: Native Web Audio API processing with echo effect (300ms delay)
 - 🌐 **P2P Connection**: Direct peer-to-peer audio streaming (low latency)
 - 🔒 **Room System**: Private rooms with unique IDs for isolated sessions
 - 📱 **QR Code Support**: Easy mobile device connection
@@ -43,12 +43,12 @@ Microphone Hardware
       ↓
 getUserMedia() - Capture 48kHz stereo
       ↓
-AudioWorklet (audio-processor.js)
+Web Audio API Processing
       │
       ├─> Echo Effect (optional)
-      │   - 300ms delay buffer
-      │   - 20% feedback
-      │   - Float32 → Int16 conversion
+      │   - DelayNode (300ms)
+      │   - GainNodes (20% feedback)
+      │   - Feedback loop
       ↓
 MediaStreamDestination
       ↓
@@ -72,8 +72,7 @@ Speaker Hardware
 
 ### Client
 - **WebRTC**: P2P audio streaming
-- **Web Audio API**: Real-time audio processing
-- **AudioWorklet**: Low-latency audio effects
+- **Web Audio API**: Real-time audio processing with native nodes
 - **MediaStream API**: Microphone capture
 
 ## Local Development
@@ -144,11 +143,12 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 }
 ```
 
-### Echo Effect Parameters (audio-processor.js)
+### Echo Effect Parameters (mic.html)
 
 ```javascript
-bufferSize: 48000 * 0.3   // 300ms delay
-feedback: 0.2             // 20% decay
+delayTime: 0.3        // 300ms delay
+feedback: 0.2         // 20% feedback gain
+wetGain: 0.5          // 50% echo mix when enabled
 ```
 
 ### ICE Servers
@@ -202,8 +202,7 @@ railway up
 └── public/
     ├── index.html            # Landing page (room selection)
     ├── mic.html              # Microphone broadcaster page
-    ├── speaker.html          # Speaker listener page
-    └── audio-processor.js    # AudioWorklet processor (echo effect)
+    └── speaker.html          # Speaker listener page
 ```
 
 ## How WebRTC Connection Works

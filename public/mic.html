@@ -251,9 +251,14 @@
         let localStream;
         const peerConnections = {};
         let isStreaming = false;
-        let audioWorkletNode = null;
 
-        const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        const iceServers = { 
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+            iceCandidatePoolSize: 10,  // Pre-gather candidates faster
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceTransportPolicy: 'all'
+        };
 
         // Register as mic immediately when socket connects
         socket.on('connect', () => {
@@ -294,7 +299,18 @@
             };
 
             try {
-                const offer = await pc.createOffer();
+                const offer = await pc.createOffer({
+                    offerToReceiveAudio: false,
+                    offerToReceiveVideo: false,
+                    voiceActivityDetection: false  // Disable VAD for lower latency
+                });
+                
+                // Optimize Opus codec for low latency
+                offer.sdp = offer.sdp.replace(
+                    /(a=fmtp:\d+ .*)/g,
+                    '$1;cbr=1;maxaveragebitrate=510000;stereo=0;usedtx=0'
+                );
+                
                 await pc.setLocalDescription(offer);
                 socket.emit('offer', { target: targetSocketId, sdp: offer });
             } catch (err) {
@@ -330,15 +346,13 @@
         const echoBtn = document.getElementById('echoBtn');
         let echoEnabled = false;
 
-        // Echo button handler - communicates with audio-processor.js
+        // Echo button handler - toggles echo effect
         echoBtn.addEventListener('click', () => {
             echoEnabled = !echoEnabled;
             
-            if (audioWorkletNode) {
-                audioWorkletNode.port.postMessage({
-                    type: 'toggle-echo',
-                    value: echoEnabled
-                });
+            if (window.echoNodes) {
+                // Enable/disable echo by adjusting wet gain
+                window.echoNodes.wetGain.gain.value = echoEnabled ? 0.5 : 0;
             }
 
             echoBtn.textContent = echoEnabled ? 'Disable Echo' : 'Enable Echo';
@@ -354,34 +368,62 @@
             try {
                 silentAudio.play().catch(e => console.log(e));
 
-                // Get original microphone stream
+                // Get original microphone stream - MONO for lower latency
                 const micStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { channelCount: 2, sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: 0 },
+                    audio: { 
+                        channelCount: 1,          // Mono = 50% less data
+                        sampleRate: 48000,        // Keep high quality
+                        echoCancellation: false,  // No processing
+                        noiseSuppression: false,  // No processing
+                        autoGainControl: false,   // No processing
+                        latency: 0                // Minimal latency
+                    },
                     video: false
                 });
 
-                // Set up audio worklet for echo effect
-                const audioContext = new AudioContext({ sampleRate: 48000 });
-                await audioContext.audioWorklet.addModule('/audio-processor.js');
+                // Only use audio processing if we need echo effect
+                // Skip processing for minimal latency
+                const audioContext = new AudioContext({ 
+                    sampleRate: 48000,
+                    latencyHint: 'interactive'  // Lowest latency mode
+                });
                 
                 const source = audioContext.createMediaStreamSource(micStream);
-                audioWorkletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
                 
-                // Create destination to capture processed audio as MediaStream
+                // Create a delay node for echo effect
+                const delayNode = audioContext.createDelay(5.0); // Max 5 seconds
+                delayNode.delayTime.value = 0.3; // 300ms delay
+                
+                const feedbackGain = audioContext.createGain();
+                feedbackGain.gain.value = 0.2; // 20% feedback
+                
+                const wetGain = audioContext.createGain();
+                wetGain.gain.value = 0; // Start with echo disabled
+                
+                const dryGain = audioContext.createGain();
+                dryGain.gain.value = 1.0; // Direct signal always on
+                
                 const destination = audioContext.createMediaStreamDestination();
                 
-                // Connect: source -> worklet -> destination (for WebRTC)
-                source.connect(audioWorkletNode);
-                audioWorkletNode.connect(destination);
+                // Connect: source -> delay -> feedback loop
+                source.connect(dryGain);
+                source.connect(delayNode);
+                delayNode.connect(feedbackGain);
+                feedbackGain.connect(delayNode); // Feedback loop
+                delayNode.connect(wetGain);
                 
-                // Also connect to speakers for local monitoring (optional)
-                // audioWorkletNode.connect(audioContext.destination);
+                // Mix dry and wet signals
+                dryGain.connect(destination);
+                wetGain.connect(destination);
+                
+                // Store nodes for echo toggle
+                window.echoNodes = { wetGain, dryGain };
                 
                 // Use the processed stream for WebRTC
                 localStream = destination.stream;
 
                 const settings = micStream.getAudioTracks()[0].getSettings();
-                qualityEl.textContent = `${settings.sampleRate / 1000}kHz`;
+                qualityEl.textContent = `${settings.sampleRate / 1000}kHz Mono`;
                 statusText.textContent = 'Streaming...';
                 statusDot.classList.add('active');
                 connectionEl.textContent = 'P2P';
