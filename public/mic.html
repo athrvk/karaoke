@@ -52,6 +52,7 @@
         .status {
             margin-top: 20px;
             color: #888;
+            font-size: 0.95rem;
         }
 
         .recording {
@@ -72,6 +73,17 @@
                 opacity: 1;
             }
         }
+
+        .debug {
+            margin-top: 20px;
+            padding: 10px;
+            background: #1c1c1e;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            max-width: 500px;
+            text-align: left;
+            color: #aaa;
+        }
     </style>
 </head>
 
@@ -82,6 +94,7 @@
         <button id="startBtn">Start Streaming</button>
     </div>
     <div id="status" class="status">Initializing...</div>
+    <div id="debug" class="debug"></div>
 
     <!-- Silent audio to keep iOS AudioSession active in background -->
     <audio id="silentAudio" loop playsinline style="display:none;">
@@ -96,6 +109,13 @@
         const statusDiv = document.getElementById('status');
         const roomBadge = document.getElementById('roomBadge');
         const silentAudio = document.getElementById('silentAudio');
+        const debugDiv = document.getElementById('debug');
+
+        function log(msg) {
+            console.log(msg);
+            debugDiv.innerHTML += msg + '<br>';
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
 
         // Get Room ID
         const urlParams = new URLSearchParams(window.location.search);
@@ -104,27 +124,51 @@
 
         // Display Room ID
         roomBadge.innerText = `Room: ${roomId}`;
+        log(`Room: ${roomId}`);
+        log(`My Peer ID: ${myPeerId}`);
 
         let localStream;
         let peer;
         let isStreaming = false;
+        let callCount = 0;
 
         function initPeer() {
-            statusDiv.innerText = `Connecting to Cloud...`;
+            statusDiv.innerText = `Connecting to PeerJS...`;
+            log('Creating Peer...');
 
             peer = new Peer(myPeerId);
 
             peer.on('open', (id) => {
-                console.log('My ID:', id);
+                log(`✓ Connected! ID: ${id}`);
                 statusDiv.innerText = 'Ready to stream';
             });
 
             peer.on('connection', (conn) => {
-                console.log('New connection:', conn.peer);
+                log(`Data connection from: ${conn.peer}`);
+            });
+
+            peer.on('call', (call) => {
+                callCount++;
+                log(`✓ Incoming call #${callCount} from: ${call.peer}`);
+
+                if (isStreaming && localStream) {
+                    log(`Answering with stream...`);
+                    call.answer(localStream);
+
+                    call.on('close', () => {
+                        log(`Call closed: ${call.peer}`);
+                    });
+
+                    call.on('error', (err) => {
+                        log(`✗ Call error: ${err.message}`);
+                    });
+                } else {
+                    log(`✗ Not streaming yet, cannot answer`);
+                }
             });
 
             peer.on('error', (err) => {
-                console.error(err);
+                log(`✗ Peer Error: ${err.type} - ${err.message}`);
                 if (err.type === 'unavailable-id') {
                     statusDiv.innerText = 'Error: Mic already active in this room!';
                 } else {
@@ -143,7 +187,8 @@
             }
 
             try {
-                silentAudio.play().catch(e => console.log('Silent audio play failed', e));
+                log('Starting audio capture...');
+                silentAudio.play().catch(e => log('Silent audio: ' + e.message));
 
                 // Get User Media
                 localStream = await navigator.mediaDevices.getUserMedia({
@@ -159,20 +204,15 @@
                 });
 
                 const settings = localStream.getAudioTracks()[0].getSettings();
+                log(`✓ Audio captured: ${settings.sampleRate}Hz, ${settings.channelCount}ch`);
                 statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)... Waiting for listeners.`;
                 statusDiv.classList.add('recording');
                 startBtn.innerText = 'Stop Streaming';
                 startBtn.style.background = '#ff3b30';
                 isStreaming = true;
 
-                // Handle incoming calls (Speakers calling Mic)
-                peer.on('call', (call) => {
-                    console.log('Answering call from Speaker:', call.peer);
-                    call.answer(localStream);
-                });
-
             } catch (err) {
-                console.error('Error starting stream:', err);
+                log(`✗ Error: ${err.message}`);
                 statusDiv.innerText = 'Error: ' + err.message;
             }
         });
