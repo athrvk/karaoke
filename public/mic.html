@@ -345,6 +345,8 @@
 
         const echoBtn = document.getElementById('echoBtn');
         let echoEnabled = false;
+        let audioContext = null;
+        let micStream = null;
 
         // Echo button handler - toggles echo effect
         echoBtn.addEventListener('click', () => {
@@ -369,7 +371,7 @@
                 silentAudio.play().catch(e => console.log(e));
 
                 // Get original microphone stream - MONO for lower latency
-                const micStream = await navigator.mediaDevices.getUserMedia({
+                micStream = await navigator.mediaDevices.getUserMedia({
                     audio: { 
                         channelCount: 1,          // Mono = 50% less data
                         sampleRate: 48000,        // Keep high quality
@@ -381,46 +383,53 @@
                     video: false
                 });
 
-                // Only use audio processing if we need echo effect
-                // Skip processing for minimal latency
-                const audioContext = new AudioContext({ 
-                    sampleRate: 48000,
-                    latencyHint: 'interactive'  // Lowest latency mode
-                });
-                
-                const source = audioContext.createMediaStreamSource(micStream);
-                
-                // Create a delay node for echo effect
-                const delayNode = audioContext.createDelay(5.0); // Max 5 seconds
-                delayNode.delayTime.value = 0.3; // 300ms delay
-                
-                const feedbackGain = audioContext.createGain();
-                feedbackGain.gain.value = 0.2; // 20% feedback
-                
-                const wetGain = audioContext.createGain();
-                wetGain.gain.value = 0; // Start with echo disabled
-                
-                const dryGain = audioContext.createGain();
-                dryGain.gain.value = 1.0; // Direct signal always on
-                
-                const destination = audioContext.createMediaStreamDestination();
-                
-                // Connect: source -> delay -> feedback loop
-                source.connect(dryGain);
-                source.connect(delayNode);
-                delayNode.connect(feedbackGain);
-                feedbackGain.connect(delayNode); // Feedback loop
-                delayNode.connect(wetGain);
-                
-                // Mix dry and wet signals
-                dryGain.connect(destination);
-                wetGain.connect(destination);
-                
-                // Store nodes for echo toggle
-                window.echoNodes = { wetGain, dryGain };
-                
-                // Use the processed stream for WebRTC
-                localStream = destination.stream;
+                // OPTIMIZATION: Skip audio processing entirely when echo is disabled
+                // This saves 5-15ms latency by avoiding Web Audio API overhead
+                if (echoEnabled) {
+                    // Use audio processing chain for echo effect
+                    audioContext = new AudioContext({ 
+                        sampleRate: 48000,
+                        latencyHint: 'interactive'
+                    });
+                    
+                    const source = audioContext.createMediaStreamSource(micStream);
+                    
+                    // Create a delay node for echo effect
+                    const delayNode = audioContext.createDelay(5.0);
+                    delayNode.delayTime.value = 0.3;
+                    
+                    const feedbackGain = audioContext.createGain();
+                    feedbackGain.gain.value = 0.2;
+                    
+                    const wetGain = audioContext.createGain();
+                    wetGain.gain.value = 0.5; // Echo enabled
+                    
+                    const dryGain = audioContext.createGain();
+                    dryGain.gain.value = 1.0;
+                    
+                    const destination = audioContext.createMediaStreamDestination();
+                    
+                    // Connect: source -> delay -> feedback loop
+                    source.connect(dryGain);
+                    source.connect(delayNode);
+                    delayNode.connect(feedbackGain);
+                    feedbackGain.connect(delayNode);
+                    delayNode.connect(wetGain);
+                    
+                    // Mix dry and wet signals
+                    dryGain.connect(destination);
+                    wetGain.connect(destination);
+                    
+                    // Store nodes for echo toggle
+                    window.echoNodes = { wetGain, dryGain };
+                    
+                    // Use the processed stream for WebRTC
+                    localStream = destination.stream;
+                } else {
+                    // Direct stream - LOWEST LATENCY PATH
+                    // No audio processing overhead
+                    localStream = micStream;
+                }
 
                 const settings = micStream.getAudioTracks()[0].getSettings();
                 qualityEl.textContent = `${settings.sampleRate / 1000}kHz Mono`;
