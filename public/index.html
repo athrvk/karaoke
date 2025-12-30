@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Streamer (P2P)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #007aff, #34c759);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: #1c1c1e;
+            border-radius: 20px;
+            padding: 30px;
+            width: 150px;
+            height: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            text-decoration: none;
+            color: white;
+            border: 1px solid #333;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            background: #2c2c2e;
+            border-color: #555;
+        }
+
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .label {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .room-input {
+            margin-bottom: 30px;
+            background: #1c1c1e;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            text-align: center;
+            width: 250px;
+        }
+
+        p {
+            color: #888;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Audio Streamer</h1>
+
+    <p>Room ID</p>
+    <input type="text" id="roomInput" class="room-input" placeholder="Enter Room ID">
+
+    <div class="card-container">
+        <a href="#" id="micLink" class="card">
+            <div class="icon">🎙️</div>
+            <div class="label">Mic</div>
+        </a>
+        <a href="#" id="speakerLink" class="card">
+            <div class="icon">🔊</div>
+            <div class="label">Speaker</div>
+        </a>
+    </div>
+
+    <script>
+        const roomInput = document.getElementById('roomInput');
+        const micLink = document.getElementById('micLink');
+        const speakerLink = document.getElementById('speakerLink');
+
+        // Generate random room ID if not present
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 8);
+        }
+
+        // Get room from URL or generate
+        const urlParams = new URLSearchParams(window.location.search);
+        let roomId = urlParams.get('room') || generateRoomId();
+
+        roomInput.value = roomId;
+
+        function updateLinks() {
+            const room = roomInput.value.trim() || 'default';
+            micLink.href = `mic.html?room=${room}`;
+            speakerLink.href = `speaker.html?room=${room}`;
+
+            // Update URL without reload
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('room', room);
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        roomInput.addEventListener('input', updateLinks);
+
+        // Init
+        updateLinks();
+    </script>
+</body>
+
+</html>

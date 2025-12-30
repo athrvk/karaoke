@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mic Streamer (P2P)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+        }
+
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:active {
+            background: #0056b3;
+        }
+
+        .status {
+            margin-top: 20px;
+            color: #888;
+        }
+
+        .recording {
+            color: #ff3b30;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Mic Streamer (PeerJS)</h1>
+    <div style="margin-bottom: 20px;">
+        <button id="startBtn">Start Streaming</button>
+    </div>
+    <div id="status" class="status">Initializing...</div>
+
+    <!-- Silent audio to keep iOS AudioSession active in background -->
+    <audio id="silentAudio" loop playsinline style="display:none;">
+        <source
+            src="data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAOAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            type="audio/mp3">
+    </audio>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const statusDiv = document.getElementById('status');
+        const silentAudio = document.getElementById('silentAudio');
+
+        // Get Room ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room') || 'default';
+        const myPeerId = `mic-${roomId}`;
+
+        let localStream;
+        let peer;
+        let isStreaming = false;
+
+        function initPeer() {
+            statusDiv.innerText = `Connecting to Cloud... (Room: ${roomId})`;
+
+            peer = new Peer(myPeerId);
+
+            peer.on('open', (id) => {
+                console.log('My ID:', id);
+                statusDiv.innerText = 'Ready. Room: ' + roomId;
+            });
+
+            peer.on('connection', (conn) => {
+                console.log('New connection:', conn.peer);
+            });
+
+            peer.on('error', (err) => {
+                console.error(err);
+                if (err.type === 'unavailable-id') {
+                    statusDiv.innerText = 'Error: Mic already active in this room!';
+                } else {
+                    statusDiv.innerText = 'Error: ' + err.type;
+                }
+            });
+        }
+
+        // Initialize PeerJS
+        initPeer();
+
+        startBtn.addEventListener('click', async () => {
+            if (isStreaming) {
+                location.reload();
+                return;
+            }
+
+            try {
+                silentAudio.play().catch(e => console.log('Silent audio play failed', e));
+
+                // Get User Media
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount: 2,
+                        sampleRate: 48000,
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        latency: 0
+                    },
+                    video: false
+                });
+
+                const settings = localStream.getAudioTracks()[0].getSettings();
+                statusDiv.innerText = `Streaming (${settings.sampleRate}Hz)... Waiting for listeners.`;
+                statusDiv.classList.add('recording');
+                startBtn.innerText = 'Stop Streaming';
+                startBtn.style.background = '#ff3b30';
+                isStreaming = true;
+
+                // Handle incoming calls (Speakers calling Mic)
+                peer.on('call', (call) => {
+                    console.log('Answering call from Speaker:', call.peer);
+                    call.answer(localStream);
+                });
+
+            } catch (err) {
+                console.error('Error starting stream:', err);
+                statusDiv.innerText = 'Error: ' + err.message;
+            }
+        });
+    </script>
+</body>
+
+</html>
