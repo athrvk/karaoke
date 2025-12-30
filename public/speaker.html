@@ -4,88 +4,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speaker (Receiver)</title>
+    <title>Speaker</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            margin: 0;
             padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
             text-align: center;
+            margin-bottom: 32px;
         }
 
         h1 {
-            margin-bottom: 1rem;
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 8px;
         }
 
-        .qr-container {
+        .subtitle {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .qr-section {
             background: white;
-            padding: 20px;
+            padding: 24px;
             border-radius: 16px;
-            margin: 20px 0;
-            display: inline-block;
+            margin-bottom: 24px;
+            text-align: center;
+            border: 2px dashed #e0e0e0;
         }
 
         .qr-label {
             color: #888;
-            font-size: 0.9rem;
-            margin-top: 10px;
+            font-size: 0.85rem;
+            margin-top: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        button {
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .status-dot.active {
             background: #28cd41;
-            color: white;
+            box-shadow: 0 0 12px rgba(40, 205, 65, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text {
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
             border: none;
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            border-radius: 25px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            background: linear-gradient(135deg, #28cd41 0%, #1e9631 100%);
+            color: white;
+            transition: all 0.3s ease;
         }
 
-        button:active {
-            background: #1e9631;
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 205, 65, 0.4);
         }
 
-        .status {
+        audio {
+            width: 100%;
             margin-top: 20px;
-            color: #888;
-        }
-
-        .connected {
-            color: #28cd41;
+            border-radius: 12px;
         }
     </style>
 </head>
 
 <body>
-    <h1>🔊 Speaker (Receiver)</h1>
+    <button class="back-btn" onclick="location.href='/'">← Back</button>
 
-    <div class="qr-container">
-        <div id="qrcode"></div>
-        <div class="qr-label">Scan to join as Mic</div>
+    <div class="container">
+        <div class="header">
+            <h1>🔊 Speaker</h1>
+            <p class="subtitle">Listen to audio stream</p>
+        </div>
+
+        <div class="qr-section">
+            <div id="qrcode"></div>
+            <div class="qr-label">Scan to join as Mic</div>
+        </div>
+
+        <div class="status-card">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <div class="status-text" id="statusText">Waiting for user...</div>
+            </div>
+        </div>
+
+        <button class="btn" id="listenBtn">Start Listening</button>
+
+        <audio id="remoteAudio" autoplay controls></audio>
     </div>
-
-    <button id="listenBtn">Start Listening</button>
-    <div id="status" class="status">Waiting for user...</div>
-
-    <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%; max-width: 400px;"></audio>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const socket = io();
         const listenBtn = document.getElementById('listenBtn');
-        const statusDiv = document.getElementById('status');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
         const remoteAudio = document.getElementById('remoteAudio');
 
-        // Generate QR Code for Mic URL
         const micUrl = `${window.location.origin}/mic.html`;
         new QRCode(document.getElementById("qrcode"), {
             text: micUrl,
@@ -97,12 +195,11 @@
         });
 
         let peerConnection;
-        const iceServers = {
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        };
+        const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         listenBtn.addEventListener('click', () => {
-            statusDiv.innerText = "Ready to receive...";
+            statusText.textContent = "Ready to receive...";
+            statusDot.classList.add('active');
             listenBtn.style.display = 'none';
             socket.emit('register-as-speaker');
         });
@@ -112,17 +209,14 @@
         });
 
         socket.on('offer', async (payload) => {
-            console.log('Received offer from', payload.sender);
-            statusDiv.innerText = "Connecting...";
+            statusText.textContent = "Connecting to Mic...";
 
             peerConnection = new RTCPeerConnection(iceServers);
 
             peerConnection.ontrack = (event) => {
-                console.log('Received remote track');
+                statusText.textContent = "🎵 Streaming Audio";
                 remoteAudio.srcObject = event.streams[0];
-                statusDiv.innerText = "🎵 Streaming Audio (P2P)";
-                statusDiv.classList.add('connected');
-                remoteAudio.play().catch(e => console.error("Play error:", e));
+                remoteAudio.play().catch(e => console.error(e));
             };
 
             peerConnection.onicecandidate = (event) => {
@@ -135,7 +229,6 @@
             };
 
             await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
 
@@ -150,7 +243,7 @@
                 try {
                     await peerConnection.addIceCandidate(payload.candidate);
                 } catch (e) {
-                    console.error('Error adding received ice candidate', e);
+                    console.error(e);
                 }
             }
         });

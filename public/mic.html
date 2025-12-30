@@ -4,74 +4,218 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic Streamer (Sender)</title>
+    <title>Mic Streamer</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
             text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
         }
 
         h1 {
-            margin-bottom: 2rem;
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 8px;
         }
 
-        button {
-            background: #007aff;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: background 0.2s;
+        .subtitle {
+            color: #666;
+            font-size: 0.95rem;
         }
 
-        button:active {
-            background: #0056b3;
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
         }
 
-        .status {
-            margin-top: 20px;
-            color: #888;
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
-        .recording {
-            color: #ff3b30;
-            animation: pulse 1s infinite;
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .status-dot.active {
+            background: #28cd41;
+            box-shadow: 0 0 12px rgba(40, 205, 65, 0.5);
+            animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
-            0% {
+
+            0%,
+            100% {
                 opacity: 1;
             }
 
             50% {
                 opacity: 0.5;
             }
+        }
 
-            100% {
-                opacity: 1;
-            }
+        .status-text {
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .info-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .listeners {
+            margin-top: 20px;
+            padding: 16px;
+            background: #e8f5e9;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .listeners-count {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #28cd41;
+        }
+
+        .listeners-label {
+            font-size: 0.9rem;
+            color: #666;
         }
     </style>
 </head>
 
 <body>
-    <h1>🎙️ Mic Streamer</h1>
-    <div style="margin-bottom: 20px;">
-        <button id="startBtn">Start Streaming</button>
-    </div>
-    <div id="status" class="status">Ready</div>
+    <button class="back-btn" onclick="location.href='/'">← Back</button>
 
-    <!-- Silent audio to keep iOS AudioSession active in background -->
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Microphone</h1>
+            <p class="subtitle">Stream your audio</p>
+        </div>
+
+        <div class="status-card">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <div class="status-text" id="statusText">Ready to stream</div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Quality</div>
+                    <div class="info-value" id="quality">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Connection</div>
+                    <div class="info-value" id="connection">Idle</div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="startBtn">Start Streaming</button>
+
+        <div class="listeners" id="listenersBox" style="display: none;">
+            <div class="listeners-count" id="listenersCount">0</div>
+            <div class="listeners-label">Active Listeners</div>
+        </div>
+    </div>
+
     <audio id="silentAudio" loop playsinline style="display:none;">
         <source
             src="data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAOAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -82,81 +226,73 @@
     <script>
         const socket = io();
         const startBtn = document.getElementById('startBtn');
-        const statusDiv = document.getElementById('status');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const qualityEl = document.getElementById('quality');
+        const connectionEl = document.getElementById('connection');
+        const listenersBox = document.getElementById('listenersBox');
+        const listenersCount = document.getElementById('listenersCount');
         const silentAudio = document.getElementById('silentAudio');
 
         let localStream;
         const peerConnections = {};
         let isStreaming = false;
 
-        const iceServers = {
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        };
+        const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         socket.on('connect', () => {
-            console.log('Connected to signaling');
+            connectionEl.textContent = 'Connected';
         });
 
         async function createPeerConnection(targetSocketId) {
-            console.log(`Creating PeerConnection for ${targetSocketId}`);
-            if (peerConnections[targetSocketId]) {
-                console.warn(`PC for ${targetSocketId} already exists, skipping`);
-                return;
-            }
+            if (peerConnections[targetSocketId]) return;
 
             const pc = new RTCPeerConnection(iceServers);
             peerConnections[targetSocketId] = pc;
 
             if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    pc.addTrack(track, localStream);
-                });
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
             }
 
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    socket.emit('ice-candidate', {
-                        target: targetSocketId,
-                        candidate: event.candidate
-                    });
+                    socket.emit('ice-candidate', { target: targetSocketId, candidate: event.candidate });
                 }
             };
 
             pc.onconnectionstatechange = () => {
-                console.log(`Connection state with ${targetSocketId}: ${pc.connectionState}`);
                 if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                     delete peerConnections[targetSocketId];
+                    updateListenerCount();
                 }
             };
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
+            socket.emit('offer', { target: targetSocketId, sdp: offer });
 
-            socket.emit('offer', {
-                target: targetSocketId,
-                sdp: offer
-            });
+            updateListenerCount();
+        }
+
+        function updateListenerCount() {
+            const count = Object.keys(peerConnections).length;
+            listenersCount.textContent = count;
+            listenersBox.style.display = count > 0 ? 'block' : 'none';
         }
 
         socket.on('user-joined', (userId) => {
-            console.log('User joined:', userId);
-            if (isStreaming) {
-                createPeerConnection(userId);
-            }
+            if (isStreaming) createPeerConnection(userId);
         });
 
         socket.on('existing-speakers', (userIds) => {
-            console.log('Found existing speakers:', userIds);
-            if (isStreaming) {
-                userIds.forEach(id => createPeerConnection(id));
-            }
+            if (isStreaming) userIds.forEach(id => createPeerConnection(id));
         });
 
         socket.on('user-left', (userId) => {
-            console.log('User left:', userId);
             if (peerConnections[userId]) {
                 peerConnections[userId].close();
                 delete peerConnections[userId];
+                updateListenerCount();
             }
         });
 
@@ -167,41 +303,32 @@
             }
 
             try {
-                silentAudio.play().catch(e => console.log('Silent audio play failed', e));
+                silentAudio.play().catch(e => console.log(e));
                 socket.emit('register-as-mic');
 
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        channelCount: 2,
-                        sampleRate: 48000,
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                        latency: 0
-                    },
+                    audio: { channelCount: 2, sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: 0 },
                     video: false
                 });
 
-                const audioTrack = localStream.getAudioTracks()[0];
-                const settings = audioTrack.getSettings();
-                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)...`;
-                statusDiv.classList.add('recording');
-                startBtn.innerText = 'Stop Streaming';
-                startBtn.style.background = '#ff3b30';
+                const settings = localStream.getAudioTracks()[0].getSettings();
+                qualityEl.textContent = `${settings.sampleRate / 1000}kHz`;
+                statusText.textContent = 'Streaming...';
+                statusDot.classList.add('active');
+                connectionEl.textContent = 'P2P';
+                startBtn.textContent = 'Stop Streaming';
+                startBtn.classList.remove('btn-primary');
+                startBtn.classList.add('btn-danger');
                 isStreaming = true;
 
             } catch (err) {
-                console.error('Error starting stream:', err);
-                statusDiv.innerText = 'Error: ' + err.message;
+                statusText.textContent = 'Error: ' + err.message;
             }
         });
 
         socket.on('answer', async (payload) => {
-            console.log('Received Answer from', payload.sender);
             const pc = peerConnections[payload.sender];
-            if (pc) {
-                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            }
+            if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
         });
 
         socket.on('ice-candidate', async (payload) => {
@@ -210,7 +337,7 @@
                 try {
                     await pc.addIceCandidate(payload.candidate);
                 } catch (e) {
-                    console.error('Error adding received ice candidate', e);
+                    console.error(e);
                 }
             }
         });

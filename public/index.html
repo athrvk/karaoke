@@ -4,139 +4,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karaoke (P2P)</title>
+    <title>Audio Streamer</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 48px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
         h1 {
-            margin-bottom: 2rem;
             font-size: 2.5rem;
-            background: linear-gradient(45deg, #007aff, #34c759);
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            margin-bottom: 12px;
+            text-align: center;
         }
 
-        .card-container {
-            display: flex;
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1rem;
+            margin-bottom: 40px;
+        }
+
+        .cards {
+            display: grid;
             gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
+            margin-bottom: 32px;
         }
 
         .card {
-            background: #1c1c1e;
-            border-radius: 20px;
-            padding: 30px;
-            width: 150px;
-            height: 150px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            padding: 24px;
             cursor: pointer;
-            transition: transform 0.2s, background 0.2s;
+            transition: all 0.3s ease;
             text-decoration: none;
-            color: white;
-            border: 1px solid #333;
+            color: inherit;
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
 
         .card:hover {
-            transform: scale(1.05);
-            background: #2c2c2e;
-            border-color: #555;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
         }
 
-        .icon {
+        .card-icon {
             font-size: 3rem;
-            margin-bottom: 15px;
+            flex-shrink: 0;
         }
 
-        .label {
-            font-size: 1.2rem;
-            font-weight: 500;
+        .card-content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: #333;
         }
 
-        .room-input {
-            margin-bottom: 30px;
-            background: #1c1c1e;
-            border: 1px solid #333;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 1.2rem;
-            text-align: center;
-            width: 250px;
+        .card-content p {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.5;
         }
 
-        p {
+        .info-box {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .info-box h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             color: #888;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #333;
         }
     </style>
 </head>
 
 <body>
-    <h1>Audio Streamer</h1>
-    <h3>Your own karaoke experience</h3>
+    <div class="container">
+        <h1>🎵 Audio Streamer</h1>
+        <p class="subtitle">High-quality P2P audio streaming</p>
 
-    <p>Room ID</p>
-    <input type="text" id="roomInput" class="room-input" placeholder="Enter Room ID">
+        <div class="cards">
+            <a href="/mic.html" class="card">
+                <div class="card-icon">🎙️</div>
+                <div class="card-content">
+                    <h2>Microphone</h2>
+                    <p>Stream audio from this device to multiple listeners</p>
+                </div>
+            </a>
 
-    <div class="card-container">
-        <a href="#" id="micLink" class="card">
-            <div class="icon">🎙️</div>
-            <div class="label">Mic</div>
-        </a>
-        <a href="#" id="speakerLink" class="card">
-            <div class="icon">🔊</div>
-            <div class="label">Speaker</div>
-        </a>
+            <a href="/speaker.html" class="card">
+                <div class="card-icon">🔊</div>
+                <div class="card-content">
+                    <h2>Speaker</h2>
+                    <p>Listen to audio stream from a microphone</p>
+                </div>
+            </a>
+        </div>
+
+        <div class="info-box">
+            <h3>Features</h3>
+            <div class="info-item">
+                <span class="info-label">Audio Quality</span>
+                <span class="info-value">48kHz Stereo</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Connection</span>
+                <span class="info-value">P2P WebRTC</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Latency</span>
+                <span class="info-value">Ultra-Low</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Listeners</span>
+                <span class="info-value">Unlimited</span>
+            </div>
+        </div>
     </div>
-
-    <script>
-        const roomInput = document.getElementById('roomInput');
-        const micLink = document.getElementById('micLink');
-        const speakerLink = document.getElementById('speakerLink');
-
-        // Generate random room ID if not present
-        function generateRoomId() {
-            return Math.random().toString(36).substring(2, 8);
-        }
-
-        // Get room from URL or generate
-        const urlParams = new URLSearchParams(window.location.search);
-        let roomId = urlParams.get('room') || generateRoomId();
-
-        roomInput.value = roomId;
-
-        function updateLinks() {
-            const room = roomInput.value.trim() || 'default';
-            micLink.href = `mic.html?room=${room}`;
-            speakerLink.href = `speaker.html?room=${room}`;
-
-            // Update URL without reload
-            const newUrl = new URL(window.location);
-            newUrl.searchParams.set('room', room);
-            window.history.replaceState({}, '', newUrl);
-        }
-
-        roomInput.addEventListener('input', updateLinks);
-
-        // Init
-        updateLinks();
-    </script>
 </body>
 
 </html>
