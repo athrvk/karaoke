@@ -1,0 +1,517 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 48px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+/* Specific h1 override for mic/speaker pages if needed, but the gradient text is nice everywhere */
+/* mic.html and speaker.html had:
+h1 {
+    font-size: 2rem;
+    color: #333;
+    margin-bottom: 8px;
+}
+I will keep the nicer gradient one from index.html as the default, but maybe override color for the others if the gradient doesn't work well there.
+Actually, the gradient text is on a white background in index.html, same as others. It should look good.
+*/
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    font-size: 1rem;
+    margin-bottom: 32px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.back-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    backdrop-filter: blur(10px);
+}
+
+/* Room Section (Index) */
+.room-section {
+    background: #f8f9fa;
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+}
+
+.room-section h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.room-input-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: monospace;
+}
+
+input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn-generate {
+    padding: 12px 20px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.room-id-display {
+    font-size: 0.85rem;
+    color: #666;
+    text-align: center;
+}
+
+/* Cards (Index) */
+.cards {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+}
+
+.card-icon {
+    font-size: 2.5rem;
+}
+
+.card-content h2 {
+    font-size: 1.25rem;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.card-content p {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+/* Info Section (Index) */
+.info-section {
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 24px;
+}
+
+.info-section h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.info-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.info-item-icon {
+    font-size: 1rem;
+    margin-top: 2px;
+}
+
+.tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.tech-badge {
+    background: white;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: #667eea;
+    font-weight: 600;
+    border: 1px solid #e0e0e0;
+}
+
+/* Status Card (Mic/Speaker) */
+.status-card {
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+}
+
+.status-dot.active {
+    background: #28cd41;
+    box-shadow: 0 0 12px rgba(40, 205, 65, 0.5);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.status-text {
+    font-size: 0.95rem;
+    color: #666;
+}
+
+/* Stats Grid (Mic) - Renamed from info-grid to avoid conflict */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.stats-item {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stats-label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.stats-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #333;
+}
+
+/* Buttons */
+.btn {
+    width: 100%;
+    padding: 18px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-danger {
+    background: #ff3b30;
+    color: white;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+/* Listeners (Mic) */
+.listeners {
+    margin-top: 20px;
+    padding: 16px;
+    background: #e8f5e9;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.listeners-count {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #28cd41;
+}
+
+.listeners-label {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* QR Section (Speaker) */
+.qr-section {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    text-align: center;
+    border: 2px dashed #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#qrcode {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.qr-label {
+    color: #888;
+    font-size: 0.85rem;
+    margin-top: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Mics Section (Speaker) */
+.mics-section {
+    background: #e8f5e9;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.mics-section h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #1b5e20;
+    margin-bottom: 12px;
+}
+
+.mic-count {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #28cd41;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.mic-count-label {
+    font-size: 0.9rem;
+    color: #666;
+    text-align: center;
+}
+
+.mic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.mic-item {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mic-item-icon {
+    font-size: 1.2rem;
+}
+
+.mic-item-info {
+    flex: 1;
+}
+
+.mic-item-id {
+    font-size: 0.75rem;
+    color: #888;
+    font-family: monospace;
+}
+
+.mic-item-status {
+    font-size: 0.85rem;
+    color: #28cd41;
+    font-weight: 600;
+}
+
+audio {
+    width: 100%;
+    margin-top: 20px;
+    border-radius: 12px;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    /* Mobile Phones */
+    body {
+        padding: 10px;
+        align-items: flex-start; /* Allow scrolling on small screens */
+    }
+    .container {
+        padding: 24px;
+        border-radius: 16px;
+        margin-top: 50px; /* Space for back button */
+    }
+    .back-btn {
+        top: 10px;
+        left: 10px;
+        padding: 8px 16px;
+        font-size: 0.8rem;
+    }
+    h1 {
+        font-size: 1.75rem;
+    }
+    .mode-card {
+        padding: 20px;
+    }
+    .info-grid {
+        grid-template-columns: 1fr; /* Stack info items */
+    }
+    .stats-grid {
+        grid-template-columns: 1fr; /* Stack stats items */
+    }
+    .qr-section {
+        padding: 16px;
+    }
+    #qrcode img {
+        width: 150px !important;
+        height: 150px !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    /* Tablets */
+    .container {
+        max-width: 600px;
+        padding: 40px;
+    }
+    h1 {
+        font-size: 2.2rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    /* Desktop & TV */
+    .container {
+        max-width: 600px;
+    }
+}
+
+@media (min-width: 1920px) {
+    /* Large TV Screens */
+    body {
+        zoom: 1.2;
+    }
+    .container {
+        max-width: 800px;
+        padding: 60px;
+    }
+    h1 {
+        font-size: 3rem;
+    }
+    .btn {
+        padding: 24px;
+        font-size: 1.3rem;
+    }
+    #qrcode img {
+        width: 300px !important;
+        height: 300px !important;
+    }
+}
