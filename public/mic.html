@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic Streamer (P2P)</title>
+    <title>Mic Streamer (Sender)</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -65,11 +65,11 @@
 </head>
 
 <body>
-    <h1>Mic Streamer (PeerJS)</h1>
+    <h1>🎙️ Mic Streamer</h1>
     <div style="margin-bottom: 20px;">
         <button id="startBtn">Start Streaming</button>
     </div>
-    <div id="status" class="status">Initializing...</div>
+    <div id="status" class="status">Ready</div>
 
     <!-- Silent audio to keep iOS AudioSession active in background -->
     <audio id="silentAudio" loop playsinline style="display:none;">
@@ -78,47 +78,87 @@
             type="audio/mp3">
     </audio>
 
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
+        const socket = io();
         const startBtn = document.getElementById('startBtn');
         const statusDiv = document.getElementById('status');
         const silentAudio = document.getElementById('silentAudio');
 
-        // Get Room ID
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomId = urlParams.get('room') || 'default';
-        const myPeerId = `mic-${roomId}`;
-
         let localStream;
-        let peer;
+        const peerConnections = {};
         let isStreaming = false;
 
-        function initPeer() {
-            statusDiv.innerText = `Connecting to Cloud... (Room: ${roomId})`;
+        const iceServers = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        };
 
-            peer = new Peer(myPeerId);
+        socket.on('connect', () => {
+            console.log('Connected to signaling');
+        });
 
-            peer.on('open', (id) => {
-                console.log('My ID:', id);
-                statusDiv.innerText = 'Ready. Room: ' + roomId;
-            });
+        async function createPeerConnection(targetSocketId) {
+            console.log(`Creating PeerConnection for ${targetSocketId}`);
+            if (peerConnections[targetSocketId]) {
+                console.warn(`PC for ${targetSocketId} already exists, skipping`);
+                return;
+            }
 
-            peer.on('connection', (conn) => {
-                console.log('New connection:', conn.peer);
-            });
+            const pc = new RTCPeerConnection(iceServers);
+            peerConnections[targetSocketId] = pc;
 
-            peer.on('error', (err) => {
-                console.error(err);
-                if (err.type === 'unavailable-id') {
-                    statusDiv.innerText = 'Error: Mic already active in this room!';
-                } else {
-                    statusDiv.innerText = 'Error: ' + err.type;
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        target: targetSocketId,
+                        candidate: event.candidate
+                    });
                 }
+            };
+
+            pc.onconnectionstatechange = () => {
+                console.log(`Connection state with ${targetSocketId}: ${pc.connectionState}`);
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    delete peerConnections[targetSocketId];
+                }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            socket.emit('offer', {
+                target: targetSocketId,
+                sdp: offer
             });
         }
 
-        // Initialize PeerJS
-        initPeer();
+        socket.on('user-joined', (userId) => {
+            console.log('User joined:', userId);
+            if (isStreaming) {
+                createPeerConnection(userId);
+            }
+        });
+
+        socket.on('existing-speakers', (userIds) => {
+            console.log('Found existing speakers:', userIds);
+            if (isStreaming) {
+                userIds.forEach(id => createPeerConnection(id));
+            }
+        });
+
+        socket.on('user-left', (userId) => {
+            console.log('User left:', userId);
+            if (peerConnections[userId]) {
+                peerConnections[userId].close();
+                delete peerConnections[userId];
+            }
+        });
 
         startBtn.addEventListener('click', async () => {
             if (isStreaming) {
@@ -128,8 +168,8 @@
 
             try {
                 silentAudio.play().catch(e => console.log('Silent audio play failed', e));
+                socket.emit('register-as-mic');
 
-                // Get User Media
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         channelCount: 2,
@@ -142,22 +182,36 @@
                     video: false
                 });
 
-                const settings = localStream.getAudioTracks()[0].getSettings();
-                statusDiv.innerText = `Streaming (${settings.sampleRate}Hz)... Waiting for listeners.`;
+                const audioTrack = localStream.getAudioTracks()[0];
+                const settings = audioTrack.getSettings();
+                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)...`;
                 statusDiv.classList.add('recording');
                 startBtn.innerText = 'Stop Streaming';
                 startBtn.style.background = '#ff3b30';
                 isStreaming = true;
 
-                // Handle incoming calls (Speakers calling Mic)
-                peer.on('call', (call) => {
-                    console.log('Answering call from Speaker:', call.peer);
-                    call.answer(localStream);
-                });
-
             } catch (err) {
                 console.error('Error starting stream:', err);
                 statusDiv.innerText = 'Error: ' + err.message;
+            }
+        });
+
+        socket.on('answer', async (payload) => {
+            console.log('Received Answer from', payload.sender);
+            const pc = peerConnections[payload.sender];
+            if (pc) {
+                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            }
+        });
+
+        socket.on('ice-candidate', async (payload) => {
+            const pc = peerConnections[payload.sender];
+            if (pc) {
+                try {
+                    await pc.addIceCandidate(payload.candidate);
+                } catch (e) {
+                    console.error('Error adding received ice candidate', e);
+                }
             }
         });
     </script>
