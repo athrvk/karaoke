@@ -83,6 +83,8 @@
             max-width: 500px;
             text-align: left;
             color: #aaa;
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -96,7 +98,6 @@
     <div id="status" class="status">Initializing...</div>
     <div id="debug" class="debug"></div>
 
-    <!-- Silent audio to keep iOS AudioSession active in background -->
     <audio id="silentAudio" loop playsinline style="display:none;">
         <source
             src="data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAOAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -117,25 +118,19 @@
             debugDiv.scrollTop = debugDiv.scrollHeight;
         }
 
-        // Get Room ID
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
         const myPeerId = `mic-${roomId}`;
 
-        // Display Room ID
         roomBadge.innerText = `Room: ${roomId}`;
-        log(`Room: ${roomId}`);
-        log(`My Peer ID: ${myPeerId}`);
+        log(`Room: ${roomId}, My ID: ${myPeerId}`);
 
         let localStream;
         let peer;
         let isStreaming = false;
-        let speakerCheckInterval;
 
         function initPeer() {
-            statusDiv.innerText = `Connecting to PeerJS...`;
             log('Creating Peer...');
-
             peer = new Peer(myPeerId);
 
             peer.on('open', (id) => {
@@ -143,36 +138,31 @@
                 statusDiv.innerText = 'Ready to stream';
             });
 
+            peer.on('call', (call) => {
+                log(`✓ Incoming call from: ${call.peer}`);
+
+                if (!isStreaming || !localStream) {
+                    log(`✗ Not streaming yet`);
+                    return;
+                }
+
+                const tracks = localStream.getTracks();
+                log(`Answering with ${tracks.length} tracks:`);
+                tracks.forEach(t => log(`  - ${t.kind}: ${t.label}, enabled: ${t.enabled}, muted: ${t.muted}`));
+
+                call.answer(localStream);
+                log(`✓ Answered`);
+            });
+
             peer.on('error', (err) => {
-                log(`✗ Peer Error: ${err.type} - ${err.message}`);
+                log(`✗ Error: ${err.type} - ${err.message}`);
                 if (err.type === 'unavailable-id') {
-                    statusDiv.innerText = 'Error: Mic already active in this room!';
-                } else {
-                    statusDiv.innerText = 'Error: ' + err.type;
+                    statusDiv.innerText = 'Error: Mic already active!';
                 }
             });
         }
 
-        // Initialize PeerJS
         initPeer();
-
-        // Function to find and call speakers
-        function findAndCallSpeakers() {
-            // Look for speaker peers with pattern: speaker-{roomId}-*
-            const speakerPrefix = `speaker-${roomId}-`;
-            log(`Looking for speakers with prefix: ${speakerPrefix}`);
-
-            // Try common speaker IDs (this is a workaround since PeerJS doesn't have discovery)
-            // In production, you'd use a signaling server or database
-            // For now, we'll just wait for speakers to exist
-
-            // Alternative: Use PeerJS's listAllPeers (if available on the server)
-            // For now, we'll use a simpler approach: call known speaker IDs
-        }
-
-        // Better approach: Broadcast our presence and let speakers call us
-        // But since that's what we tried before, let's use a hybrid:
-        // Mic will periodically try to call any speaker that connects
 
         startBtn.addEventListener('click', async () => {
             if (isStreaming) {
@@ -181,82 +171,36 @@
             }
 
             try {
-                log('Starting audio capture...');
-                silentAudio.play().catch(e => log('Silent audio: ' + e.message));
+                log('Requesting microphone...');
+                silentAudio.play().catch(e => log(`Silent audio: ${e.message}`));
 
-                // Get User Media
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         channelCount: 2,
                         sampleRate: 48000,
                         echoCancellation: false,
                         noiseSuppression: false,
-                        autoGainControl: false,
-                        latency: 0
+                        autoGainControl: false
                     },
                     video: false
                 });
 
-                const settings = localStream.getAudioTracks()[0].getSettings();
-                log(`✓ Audio captured: ${settings.sampleRate}Hz, ${settings.channelCount || 'unknown'}ch`);
-                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)... Scanning for speakers.`;
+                const track = localStream.getAudioTracks()[0];
+                const settings = track.getSettings();
+                log(`✓ Audio: ${settings.sampleRate}Hz, ${settings.channelCount}ch`);
+                log(`  Track enabled: ${track.enabled}, muted: ${track.muted}`);
+
+                statusDiv.innerText = `🔴 Streaming (${settings.sampleRate}Hz)`;
                 statusDiv.classList.add('recording');
-                startBtn.innerText = 'Stop Streaming';
+                startBtn.innerText = 'Stop';
                 startBtn.style.background = '#ff3b30';
                 isStreaming = true;
-
-                // Start looking for speakers
-                scanForSpeakers();
 
             } catch (err) {
                 log(`✗ Error: ${err.message}`);
                 statusDiv.innerText = 'Error: ' + err.message;
             }
         });
-
-        function scanForSpeakers() {
-            log('Scanning for speakers...');
-
-            // Try to call speakers with incrementing IDs
-            // This is a workaround - ideally we'd have a discovery mechanism
-            const attempts = ['a', 'b', 'c', 'd', 'e', 'f'].map(suffix => {
-                const speakerId = `speaker-${roomId}-${suffix}`;
-                return tryCallSpeaker(speakerId);
-            });
-
-            // Also try random 6-char IDs (what our speaker generates)
-            // We'll use a polling approach
-            speakerCheckInterval = setInterval(() => {
-                // Try a few random patterns
-                for (let i = 0; i < 3; i++) {
-                    const randomId = Math.random().toString(36).substr(2, 6);
-                    const speakerId = `speaker-${roomId}-${randomId}`;
-                    tryCallSpeaker(speakerId);
-                }
-            }, 5000);
-        }
-
-        const calledSpeakers = new Set();
-
-        function tryCallSpeaker(speakerId) {
-            if (calledSpeakers.has(speakerId)) return;
-
-            log(`Trying to call: ${speakerId}`);
-            calledSpeakers.add(speakerId);
-
-            const call = peer.call(speakerId, localStream);
-
-            if (call) {
-                call.on('stream', () => {
-                    log(`✓ Connected to ${speakerId}`);
-                });
-
-                call.on('error', (err) => {
-                    // Silently fail - speaker probably doesn't exist
-                    calledSpeakers.delete(speakerId); // Allow retry
-                });
-            }
-        }
     </script>
 </body>
 

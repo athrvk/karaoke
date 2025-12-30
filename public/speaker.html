@@ -42,16 +42,6 @@
             display: inline-block;
         }
 
-        #qrcode {
-            margin: 0 auto;
-        }
-
-        .qr-label {
-            color: #888;
-            font-size: 0.9rem;
-            margin-top: 10px;
-        }
-
         button {
             background: #28cd41;
             color: white;
@@ -87,6 +77,8 @@
             max-width: 500px;
             text-align: left;
             color: #aaa;
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -97,14 +89,13 @@
 
     <div class="qr-container">
         <div id="qrcode"></div>
-        <div class="qr-label">Scan to connect as Mic</div>
+        <div style="color: #888; font-size: 0.9rem; margin-top: 10px;">Scan to connect as Mic</div>
     </div>
 
     <button id="listenBtn">Start Listening</button>
     <div id="status" class="status">Waiting for user...</div>
     <div id="debug" class="debug"></div>
 
-    <!-- Audio element for playback -->
     <audio id="remoteAudio" autoplay controls style="margin-top: 20px; width: 80%; max-width: 400px;"></audio>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -122,17 +113,13 @@
             debugDiv.scrollTop = debugDiv.scrollHeight;
         }
 
-        // Get Room ID
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
-        const myPeerId = `speaker-${roomId}-${Math.random().toString(36).substr(2, 6)}`;
+        const targetPeerId = `mic-${roomId}`;
 
-        // Display Room ID
         roomBadge.innerText = `Room: ${roomId}`;
-        log(`Room: ${roomId}`);
-        log(`My Peer ID: ${myPeerId}`);
+        log(`Room: ${roomId}, Target: ${targetPeerId}`);
 
-        // Generate QR Code for Mic URL
         const micUrl = `${window.location.origin}/mic.html?room=${roomId}`;
         new QRCode(document.getElementById("qrcode"), {
             text: micUrl,
@@ -153,48 +140,62 @@
 
         function initPeer() {
             log('Creating Peer...');
-            peer = new Peer(myPeerId);
+            peer = new Peer();
 
             peer.on('open', (id) => {
-                log(`✓ My Peer ID: ${id}`);
-                statusDiv.innerText = 'Waiting for Mic to connect...';
-            });
-
-            // Speaker now RECEIVES calls from Mic
-            peer.on('call', (call) => {
-                log(`✓ Incoming call from Mic!`);
-                statusDiv.innerText = 'Mic connected! Receiving stream...';
-
-                // Answer with empty stream (we're only receiving)
-                call.answer(new MediaStream());
-
-                call.on('stream', (stream) => {
-                    if (stream.getAudioTracks().length > 0) {
-                        log(`✓ Received audio stream!`);
-                        statusDiv.innerText = "🎵 Streaming Audio (P2P)";
-                        statusDiv.classList.add('connected');
-                        remoteAudio.srcObject = stream;
-                        remoteAudio.play().catch(e => {
-                            log(`✗ Play error: ${e.message}`);
-                        });
-                    }
-                });
-
-                call.on('close', () => {
-                    log('Call closed');
-                    statusDiv.innerText = 'Mic disconnected';
-                    statusDiv.classList.remove('connected');
-                });
-
-                call.on('error', (err) => {
-                    log(`✗ Call error: ${err.message}`);
-                });
+                log(`✓ My ID: ${id}`);
+                connectToMic();
             });
 
             peer.on('error', (err) => {
-                log(`✗ Peer Error: ${err.type} - ${err.message}`);
-                statusDiv.innerText = `Error: ${err.type}`;
+                log(`✗ Error: ${err.type}`);
             });
+        }
+
+        function connectToMic() {
+            log(`Calling ${targetPeerId}...`);
+            statusDiv.innerText = `Calling Mic...`;
+
+            const call = peer.call(targetPeerId, new MediaStream());
+
+            if (!call) {
+                log('✗ Call failed');
+                setTimeout(connectToMic, 3000);
+                return;
+            }
+
+            log('Call initiated, waiting for stream...');
+
+            call.on('stream', (stream) => {
+                log(`✓ Stream received! Tracks: ${stream.getTracks().length}`);
+                stream.getTracks().forEach(track => {
+                    log(`  - ${track.kind}: ${track.label}`);
+                });
+
+                statusDiv.innerText = "🎵 Streaming Audio (P2P)";
+                statusDiv.classList.add('connected');
+                remoteAudio.srcObject = stream;
+                remoteAudio.play().catch(e => log(`✗ Play: ${e.message}`));
+            });
+
+            call.on('close', () => {
+                log('Call closed, retrying...');
+                statusDiv.innerText = 'Reconnecting...';
+                setTimeout(connectToMic, 3000);
+            });
+
+            call.on('error', (err) => {
+                log(`✗ Call error: ${err.type}`);
+                setTimeout(connectToMic, 3000);
+            });
+
+            // Timeout check
+            setTimeout(() => {
+                if (!remoteAudio.srcObject) {
+                    log('⚠ No stream after 5s, retrying...');
+                    call.close();
+                }
+            }, 5000);
         }
     </script>
 </body>
