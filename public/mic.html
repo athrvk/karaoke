@@ -131,7 +131,21 @@
 
         function initPeer() {
             log('Creating Peer...');
-            peer = new Peer(myPeerId);
+
+            const config = {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        {
+                            urls: 'turn:openrelay.metered.ca:80',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject'
+                        }
+                    ]
+                }
+            };
+
+            peer = new Peer(myPeerId, config);
 
             peer.on('open', (id) => {
                 log(`✓ Connected! ID: ${id}`);
