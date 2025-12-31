@@ -175,11 +175,39 @@
                         if (latency < 50) latencyEl.style.color = '#28cd41'; // Green
                         else if (latency < 150) latencyEl.style.color = '#ff9500'; // Orange
                         else latencyEl.style.color = '#ff3b30'; // Red
+                        
+                        // AUTO-RESET: If latency exceeds 400ms, recreate connection to clear buffer
+                        if (latency > 400) {
+                            console.warn(`High latency detected (${latency}ms), resetting connection to ${micId}`);
+                            recreateConnection(micId);
+                        }
                     }
                 } catch (e) {
                     console.error('Error getting stats:', e);
                 }
             }
+        }
+        
+        // Recreate peer connection to reset jitter buffer
+        async function recreateConnection(micId) {
+            const pc = peerConnections[micId];
+            if (!pc) return;
+            
+            // Close and clean up old connection
+            pc.close();
+            delete peerConnections[micId];
+            if (audioElements[micId]) {
+                audioElements[micId].remove();
+                delete audioElements[micId];
+            }
+            
+            // Remove from UI temporarily
+            const micItem = document.getElementById(`mic-item-${micId}`);
+            if (micItem) micItem.remove();
+            
+            updateMicList();
+            
+            console.log(`Connection reset for ${micId}, waiting for reconnection...`);
         }
 
         // Auto-register speaker on connect and start listening immediately
@@ -212,6 +240,10 @@
                 const receiver = pc.getReceivers().find(r => r.track.id === event.track.id);
                 if (receiver) {
                     receiver.playoutDelayHint = 0;
+                    // Set explicit jitter buffer target to prevent drift
+                    if (receiver.jitterBufferTarget !== undefined) {
+                        receiver.jitterBufferTarget = 0; // 0ms target
+                    }
                 }
 
                 const newAudio = document.createElement('audio');

@@ -57,6 +57,24 @@
                     </select>
                     <p class="control-hint">Optimized for lowest latency with maximum quality.</p>
                 </div>
+                
+                <div class="control-item">
+                    <div class="control-label-row">
+                        <label class="control-label">Echo Cancellation</label>
+                        <span class="control-badge" id="echoCancelBadge">OFF - Ultra Low Latency</span>
+                    </div>
+                    <div class="toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="echoCancelToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="toggle-labels">
+                            <span class="toggle-label">OFF</span>
+                            <span class="toggle-label">ON</span>
+                        </div>
+                    </div>
+                    <p class="control-hint" id="echoCancelHint">⚡ Ultra-low latency mode. Enable if you hear echo/feedback.</p>
+                </div>
             </div>
         </div>
 
@@ -202,9 +220,26 @@
         });
 
         const echoBtn = document.getElementById('echoBtn');
+        const echoCancelToggle = document.getElementById('echoCancelToggle');
+        const echoCancelBadge = document.getElementById('echoCancelBadge');
+        const echoCancelHint = document.getElementById('echoCancelHint');
         let echoEnabled = false;
         let audioContext = null;
         let micStream = null;
+
+        // Echo cancellation toggle handler
+        echoCancelToggle.addEventListener('change', () => {
+            const isEnabled = echoCancelToggle.checked;
+            echoCancelBadge.textContent = isEnabled ? 'ON - Stable Audio' : 'OFF - Ultra Low Latency';
+            echoCancelBadge.style.background = isEnabled ? '#28cd41' : '#667eea';
+            echoCancelHint.innerHTML = isEnabled 
+                ? '🛡️ Echo cancellation enabled. Adds ~10ms latency but prevents feedback.' 
+                : '⚡ Ultra-low latency mode. Enable if you hear echo/feedback.';
+            
+            if (isStreaming) {
+                applySettings();
+            }
+        });
 
         // Function to apply settings on the fly
         async function applySettings() {
@@ -213,12 +248,13 @@
             console.log("Applying new audio settings...");
             
             try {
-                // Read settings - hardcoded optimized values for lowest latency
+                // Read settings
                 const sampleRateVal = document.getElementById('sampleRate').value;
+                const echoCancelEnabled = echoCancelToggle.checked;
 
                 const audioConstraints = {
                     channelCount: 1,
-                    echoCancellation: false,  // Disabled for lowest latency
+                    echoCancellation: echoCancelEnabled,  // User controlled
                     noiseSuppression: false,  // Disabled for lowest latency
                     autoGainControl: false,   // Disabled for lowest latency
                     latency: 0                // Minimum latency
@@ -362,12 +398,13 @@
             try {
                 silentAudio.play().catch(e => console.log(e));
 
-                // Optimized settings for lowest latency
+                // Read settings
                 const sampleRateVal = document.getElementById('sampleRate').value;
+                const echoCancelEnabled = echoCancelToggle.checked;
 
                 const audioConstraints = {
                     channelCount: 1,          // Mono for reduced bandwidth
-                    echoCancellation: false,  // Disabled for lowest latency
+                    echoCancellation: echoCancelEnabled,  // User controlled
                     noiseSuppression: false,  // Disabled for lowest latency
                     autoGainControl: false,   // Disabled for lowest latency
                     latency: 0                // Minimum latency
