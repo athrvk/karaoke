@@ -32,23 +32,7 @@ const io = new Server(server, {
 
 // Serve static files from 'public' directory
 app.use(express.static('public', {
-    maxAge: '1d',  // Cache for 1 day
     etag: true,    // Enable ETags
-    lastModified: true,  // Enable Last-Modified header
-    setHeaders: (res, path) => {
-        // HTML files - shorter cache, always revalidate
-        if (path.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate'); // 1 hour
-        }
-        // JS/CSS - longer cache
-        else if (path.endsWith('.js') || path.endsWith('.css')) {
-            res.setHeader('Cache-Control', 'public, max-age=86400, immutable'); // 1 day
-        }
-        // Images and other assets
-        else {
-            res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 days
-        }
-    }
 }));
 
 io.on('connection', (socket) => {
