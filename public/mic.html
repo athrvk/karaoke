@@ -40,6 +40,40 @@
             </div>
         </div>
 
+        <div class="settings-panel">
+            <div class="settings-title">Audio Settings</div>
+            
+            <div class="settings-grid">
+                <div class="settings-group">
+                    <label class="settings-label" for="sampleRate">Sample Rate</label>
+                    <select id="sampleRate" class="settings-select">
+                        <option value="default">Default</option>
+                        <option value="48000" selected>48 kHz</option>
+                        <option value="44100">44.1 kHz</option>
+                        <option value="22050">22.05 kHz</option>
+                        <option value="16000">16 kHz</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="lowLatency" checked>
+                <label class="checkbox-label" for="lowLatency">Low Latency Mode</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="echoCancellation">
+                <label class="checkbox-label" for="echoCancellation">Echo Cancellation</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="noiseSuppression">
+                <label class="checkbox-label" for="noiseSuppression">Noise Suppression</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="autoGainControl">
+                <label class="checkbox-label" for="autoGainControl">Auto Gain Control</label>
+            </div>
+        </div>
+
         <button class="btn btn-primary" id="startBtn">Start Performance</button>
 
         <button class="btn btn-secondary" id="echoBtn" style="display: none; margin-top: 12px; background: #6c757d;">
@@ -175,17 +209,128 @@
         let audioContext = null;
         let micStream = null;
 
+        // Function to apply settings on the fly
+        async function applySettings() {
+            if (!isStreaming) return;
+            
+            console.log("Applying new audio settings...");
+            
+            try {
+                // Read settings
+                const sampleRateVal = document.getElementById('sampleRate').value;
+                const echoCancellationVal = document.getElementById('echoCancellation').checked;
+                const noiseSuppressionVal = document.getElementById('noiseSuppression').checked;
+                const autoGainControlVal = document.getElementById('autoGainControl').checked;
+                const lowLatencyVal = document.getElementById('lowLatency').checked;
+
+                const audioConstraints = {
+                    channelCount: 1,
+                    echoCancellation: echoCancellationVal,
+                    noiseSuppression: noiseSuppressionVal,
+                    autoGainControl: autoGainControlVal,
+                };
+
+                if (sampleRateVal !== 'default') {
+                    audioConstraints.sampleRate = parseInt(sampleRateVal);
+                }
+                
+                if (lowLatencyVal) {
+                    audioConstraints.latency = 0;
+                }
+
+                // Get new stream
+                const newMicStream = await navigator.mediaDevices.getUserMedia({
+                    audio: audioConstraints,
+                    video: false
+                });
+
+                let newLocalStream;
+
+                // Rebuild pipeline
+                if (echoEnabled) {
+                    if (audioContext) {
+                        await audioContext.close();
+                    }
+                    
+                    audioContext = new AudioContext({ 
+                        sampleRate: sampleRateVal !== 'default' ? parseInt(sampleRateVal) : 48000,
+                        latencyHint: 'interactive'
+                    });
+                    
+                    const source = audioContext.createMediaStreamSource(newMicStream);
+                    const delayNode = audioContext.createDelay(5.0);
+                    delayNode.delayTime.value = 0.3;
+                    const feedbackGain = audioContext.createGain();
+                    feedbackGain.gain.value = 0.2;
+                    const wetGain = audioContext.createGain();
+                    wetGain.gain.value = 0.5;
+                    const dryGain = audioContext.createGain();
+                    dryGain.gain.value = 1.0;
+                    const destination = audioContext.createMediaStreamDestination();
+                    
+                    source.connect(dryGain);
+                    source.connect(delayNode);
+                    delayNode.connect(feedbackGain);
+                    feedbackGain.connect(delayNode);
+                    delayNode.connect(wetGain);
+                    dryGain.connect(destination);
+                    wetGain.connect(destination);
+                    
+                    window.echoNodes = { wetGain, dryGain };
+                    newLocalStream = destination.stream;
+                } else {
+                    // Direct mode
+                    if (audioContext) {
+                        await audioContext.close();
+                        audioContext = null;
+                    }
+                    newLocalStream = newMicStream;
+                }
+
+                // Replace tracks in all peer connections
+                const newTrack = newLocalStream.getAudioTracks()[0];
+                const replacePromises = Object.values(peerConnections).map(pc => {
+                    const sender = pc.getSenders().find(s => s.track.kind === 'audio');
+                    if (sender) {
+                        return sender.replaceTrack(newTrack);
+                    }
+                    return Promise.resolve();
+                });
+                await Promise.all(replacePromises);
+
+                // Cleanup old stream
+                if (micStream) {
+                    micStream.getTracks().forEach(t => t.stop());
+                }
+
+                // Update globals
+                micStream = newMicStream;
+                localStream = newLocalStream;
+
+                // Update UI
+                const settings = newMicStream.getAudioTracks()[0].getSettings();
+                const channelText = settings.channelCount === 2 ? 'Stereo' : 'Mono';
+                qualityEl.textContent = `${settings.sampleRate / 1000}kHz ${channelText}`;
+                
+            } catch (err) {
+                console.error("Error applying settings:", err);
+            }
+        }
+
         // Echo button handler - toggles echo effect
         echoBtn.addEventListener('click', () => {
             echoEnabled = !echoEnabled;
-            
-            if (window.echoNodes) {
-                // Enable/disable echo by adjusting wet gain
-                window.echoNodes.wetGain.gain.value = echoEnabled ? 0.5 : 0;
-            }
-
             echoBtn.textContent = echoEnabled ? 'Disable Reverb' : 'Enable Reverb';
             echoBtn.style.background = echoEnabled ? '#28cd41' : '#6c757d';
+            
+            if (isStreaming) {
+                applySettings();
+            }
+        });
+
+        // Attach listeners for settings
+        ['sampleRate', 'echoCancellation', 'noiseSuppression', 'autoGainControl', 'lowLatency'].forEach(id => {
+            document.getElementById(id).addEventListener('change', applySettings);
         });
 
         startBtn.addEventListener('click', async () => {
@@ -197,16 +342,31 @@
             try {
                 silentAudio.play().catch(e => console.log(e));
 
-                // Get original microphone stream - MONO for lower latency
+                // Read settings
+                const sampleRateVal = document.getElementById('sampleRate').value;
+                const echoCancellationVal = document.getElementById('echoCancellation').checked;
+                const noiseSuppressionVal = document.getElementById('noiseSuppression').checked;
+                const autoGainControlVal = document.getElementById('autoGainControl').checked;
+                const lowLatencyVal = document.getElementById('lowLatency').checked;
+
+                const audioConstraints = {
+                    channelCount: 1, // Default to Mono
+                    echoCancellation: echoCancellationVal,
+                    noiseSuppression: noiseSuppressionVal,
+                    autoGainControl: autoGainControlVal,
+                };
+
+                if (sampleRateVal !== 'default') {
+                    audioConstraints.sampleRate = parseInt(sampleRateVal);
+                }
+                
+                if (lowLatencyVal) {
+                    audioConstraints.latency = 0;
+                }
+
+                // Get microphone stream with user settings
                 micStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { 
-                        channelCount: 1,          // Mono = 50% less data
-                        sampleRate: 48000,        // Keep high quality
-                        echoCancellation: false,  // No processing
-                        noiseSuppression: false,  // No processing
-                        autoGainControl: false,   // No processing
-                        latency: 0                // Minimal latency
-                    },
+                    audio: audioConstraints,
                     video: false
                 });
 
@@ -215,7 +375,7 @@
                 if (echoEnabled) {
                     // Use audio processing chain for echo effect
                     audioContext = new AudioContext({ 
-                        sampleRate: 48000,
+                        sampleRate: sampleRateVal !== 'default' ? parseInt(sampleRateVal) : 48000,
                         latencyHint: 'interactive'
                     });
                     
@@ -259,7 +419,8 @@
                 }
 
                 const settings = micStream.getAudioTracks()[0].getSettings();
-                qualityEl.textContent = `${settings.sampleRate / 1000}kHz Mono`;
+                const channelText = settings.channelCount === 2 ? 'Stereo' : 'Mono';
+                qualityEl.textContent = `${settings.sampleRate / 1000}kHz ${channelText}`;
                 statusText.textContent = 'Performing...';
                 statusDot.classList.add('active');
                 connectionEl.textContent = 'P2P';
