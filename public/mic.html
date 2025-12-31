@@ -118,8 +118,13 @@
         let isStreaming = false;
 
         const iceServers = { 
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-            iceCandidatePoolSize: 10,  // Pre-gather candidates faster
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.services.mozilla.com:3478' }
+            ],
+            iceCandidatePoolSize: 20,  // Increased for faster connection
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceTransportPolicy: 'all'
@@ -173,9 +178,9 @@
                 // Optimize Opus codec for lowest latency
                 let sdp = offer.sdp;
                 
-                // Apply default 20ms ptime for optimal balance
-                const ptime = 20;
-                sdp = sdp.replace(/(a=fmtp:\d+ .*)/g, `$1;cbr=1;maxaveragebitrate=510000;stereo=0;usedtx=0;ptime=${ptime}`);
+                // Apply aggressive 10ms ptime for minimal latency
+                const ptime = 10;
+                sdp = sdp.replace(/(a=fmtp:\d+ .*)/g, `$1;cbr=1;maxaveragebitrate=510000;stereo=0;usedtx=0;minptime=10;maxptime=10;useinbandfec=1`);
                 
                 // If ptime attribute exists separately, update it too
                 if (sdp.includes('a=ptime:')) {

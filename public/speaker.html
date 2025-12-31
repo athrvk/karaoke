@@ -79,7 +79,18 @@
         let peerConnections = {};
         let audioElements = {};
         let latencyInterval = null;
-        const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        const iceServers = { 
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.services.mozilla.com:3478' }
+            ],
+            iceCandidatePoolSize: 20,
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceTransportPolicy: 'all'
+        };
         let audioUnlocked = false;
 
         // Unlock audio on any user interaction (for browser autoplay policy)
@@ -250,12 +261,20 @@
                     if (receiver.jitterBufferTarget !== undefined) {
                         receiver.jitterBufferTarget = 0; // 0ms target
                     }
+                    // Set explicit playout delay constraints
+                    if (receiver.playoutDelay) {
+                        receiver.playoutDelay.min = 0;
+                        receiver.playoutDelay.max = 0;
+                    }
                 }
 
                 const newAudio = document.createElement('audio');
                 newAudio.autoplay = true;
                 newAudio.playsInline = true;
                 newAudio.muted = true; // Start muted
+                newAudio.preservesPitch = false;  // Disable pitch correction for lower latency
+                newAudio.mozPreservesPitch = false;
+                newAudio.webkitPreservesPitch = false;
                 newAudio.srcObject = event.streams[0];
                 audioContainer.appendChild(newAudio);
                 audioElements[micId] = newAudio;
@@ -266,12 +285,10 @@
                     playPromise
                         .then(() => {
                             console.log('Audio playing successfully (muted)');
-                            // Unmute after a short delay
-                            setTimeout(() => {
-                                newAudio.muted = false;
-                                newAudio.volume = 1.0;
-                                console.log('Audio unmuted - you should hear it now');
-                            }, 500);
+                            // Unmute immediately for lowest latency
+                            newAudio.muted = false;
+                            newAudio.volume = 1.0;
+                            console.log('Audio unmuted - you should hear it now');
                         })
                         .catch(e => {
                             console.warn('Autoplay blocked, waiting for user interaction', e);
