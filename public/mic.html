@@ -47,8 +47,6 @@
             </div>
 
             <div class="settings-section">
-                <div class="settings-section-title">Quality</div>
-                
                 <div class="control-item">
                     <div class="control-label-row">
                         <label class="control-label" for="sampleRate">Sample Rate</label>
@@ -57,60 +55,8 @@
                     <select id="sampleRate" class="control-select">
                         <option value="default" selected>Default</option>
                     </select>
-                    <p class="control-hint">Higher rates improve quality but increase bandwidth usage.</p>
+                    <p class="control-hint">Optimized for lowest latency with maximum quality.</p>
                 </div>
-
-                <div class="control-item">
-                    <div class="control-label-row">
-                        <label class="control-label" for="packetTime">Packet Size</label>
-                    </div>
-                    <select id="packetTime" class="control-select">
-                        <option value="10">10ms · Lowest Latency</option>
-                        <option value="20" selected>20ms · Standard</option>
-                        <option value="40">40ms · High Efficiency</option>
-                    </select>
-                    <p class="control-hint">Smaller packets reduce delay but increase CPU load.</p>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">Performance</div>
-                
-                <label class="control-switch">
-                    <input type="checkbox" id="lowLatency" checked>
-                    <span class="switch-slider"></span>
-                    <span class="switch-content">
-                        <span class="switch-label">Low Latency Mode</span>
-                        <span class="switch-hint">Reduces buffer for real-time sync</span>
-                    </span>
-                </label>
-
-                <label class="control-switch">
-                    <input type="checkbox" id="echoCancellation" checked>
-                    <span class="switch-slider"></span>
-                    <span class="switch-content">
-                        <span class="switch-label">Echo Cancellation</span>
-                        <span class="switch-hint">Prevents feedback loops</span>
-                    </span>
-                </label>
-
-                <label class="control-switch">
-                    <input type="checkbox" id="noiseSuppression">
-                    <span class="switch-slider"></span>
-                    <span class="switch-content">
-                        <span class="switch-label">Noise Suppression</span>
-                        <span class="switch-hint">Removes background noise</span>
-                    </span>
-                </label>
-
-                <label class="control-switch">
-                    <input type="checkbox" id="autoGainControl" checked>
-                    <span class="switch-slider"></span>
-                    <span class="switch-content">
-                        <span class="switch-label">Auto Gain Control</span>
-                        <span class="switch-hint">Adjusts volume automatically</span>
-                    </span>
-                </label>
             </div>
         </div>
 
@@ -206,11 +152,11 @@
                     voiceActivityDetection: false  // Disable VAD for lower latency
                 });
                 
-                // Optimize Opus codec for low latency
+                // Optimize Opus codec for lowest latency
                 let sdp = offer.sdp;
                 
-                // Apply ptime
-                const ptime = document.getElementById('packetTime').value;
+                // Apply default 20ms ptime for optimal balance
+                const ptime = 20;
                 sdp = sdp.replace(/(a=fmtp:\d+ .*)/g, `$1;cbr=1;maxaveragebitrate=510000;stereo=0;usedtx=0;ptime=${ptime}`);
                 
                 // If ptime attribute exists separately, update it too
@@ -267,26 +213,19 @@
             console.log("Applying new audio settings...");
             
             try {
-                // Read settings
+                // Read settings - hardcoded optimized values for lowest latency
                 const sampleRateVal = document.getElementById('sampleRate').value;
-                const echoCancellationVal = document.getElementById('echoCancellation').checked;
-                const noiseSuppressionVal = document.getElementById('noiseSuppression').checked;
-                const autoGainControlVal = document.getElementById('autoGainControl').checked;
-                const lowLatencyVal = document.getElementById('lowLatency').checked;
 
                 const audioConstraints = {
                     channelCount: 1,
-                    echoCancellation: echoCancellationVal,
-                    noiseSuppression: noiseSuppressionVal,
-                    autoGainControl: autoGainControlVal,
+                    echoCancellation: false,  // Disabled for lowest latency
+                    noiseSuppression: false,  // Disabled for lowest latency
+                    autoGainControl: false,   // Disabled for lowest latency
+                    latency: 0                // Minimum latency
                 };
 
                 if (sampleRateVal !== 'default') {
                     audioConstraints.sampleRate = parseInt(sampleRateVal);
-                }
-                
-                if (lowLatencyVal) {
-                    audioConstraints.latency = 0;
                 }
 
                 // Get new stream
@@ -379,10 +318,8 @@
             }
         });
 
-        // Attach listeners for settings
-        ['sampleRate', 'packetTime', 'echoCancellation', 'noiseSuppression', 'autoGainControl', 'lowLatency'].forEach(id => {
-            document.getElementById(id).addEventListener('change', applySettings);
-        });
+        // Attach listener for sample rate only
+        document.getElementById('sampleRate').addEventListener('change', applySettings);
 
         function updateSampleRateList(stream) {
             const select = document.getElementById('sampleRate');
@@ -425,26 +362,19 @@
             try {
                 silentAudio.play().catch(e => console.log(e));
 
-                // Read settings
+                // Optimized settings for lowest latency
                 const sampleRateVal = document.getElementById('sampleRate').value;
-                const echoCancellationVal = document.getElementById('echoCancellation').checked;
-                const noiseSuppressionVal = document.getElementById('noiseSuppression').checked;
-                const autoGainControlVal = document.getElementById('autoGainControl').checked;
-                const lowLatencyVal = document.getElementById('lowLatency').checked;
 
                 const audioConstraints = {
-                    channelCount: 1, // Default to Mono
-                    echoCancellation: echoCancellationVal,
-                    noiseSuppression: noiseSuppressionVal,
-                    autoGainControl: autoGainControlVal,
+                    channelCount: 1,          // Mono for reduced bandwidth
+                    echoCancellation: false,  // Disabled for lowest latency
+                    noiseSuppression: false,  // Disabled for lowest latency
+                    autoGainControl: false,   // Disabled for lowest latency
+                    latency: 0                // Minimum latency
                 };
 
                 if (sampleRateVal !== 'default') {
                     audioConstraints.sampleRate = parseInt(sampleRateVal);
-                }
-                
-                if (lowLatencyVal) {
-                    audioConstraints.latency = 0;
                 }
 
                 // Get microphone stream with user settings

@@ -34,24 +34,6 @@
             </div>
         </div>
 
-        <div class="settings-panel">
-            <div class="settings-header">
-                <span class="settings-icon">⚙️</span>
-                <h3 class="settings-title">Playback Configuration</h3>
-            </div>
-
-            <div class="settings-section">
-                <label class="control-switch">
-                    <input type="checkbox" id="minBuffer">
-                    <span class="switch-slider"></span>
-                    <span class="switch-content">
-                        <span class="switch-label">Minimize Buffering</span>
-                        <span class="switch-hint">Forces immediate playback for lower latency</span>
-                    </span>
-                </label>
-            </div>
-        </div>
-
         <div class="mics-section" id="micsSection" style="display: none;">
             <h3>Live Performers</h3>
             <div class="mic-count" id="micCount">0</div>
@@ -78,7 +60,6 @@
         const micsSection = document.getElementById('micsSection');
         const micCount = document.getElementById('micCount');
         const micList = document.getElementById('micList');
-        const minBufferCheckbox = document.getElementById('minBuffer');
 
         // Get room ID from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -119,20 +100,6 @@
         
         // Try to unlock immediately on page load
         unlockAudio();
-
-        // Handle buffer setting change
-        minBufferCheckbox.addEventListener('change', () => {
-            const hint = minBufferCheckbox.checked ? 0 : null;
-            console.log(`Setting playoutDelayHint to ${hint}`);
-            
-            Object.values(peerConnections).forEach(pc => {
-                pc.getReceivers().forEach(receiver => {
-                    if (receiver.track.kind === 'audio') {
-                        receiver.playoutDelayHint = hint;
-                    }
-                });
-            });
-        });
 
         // Update mic list display
         function updateMicList() {
@@ -241,10 +208,10 @@
                 console.log('Received audio track from mic');
                 statusText.textContent = "🎵 Live Performance";
                 
-                // Apply buffer setting immediately
+                // Apply minimum buffering for lowest latency
                 const receiver = pc.getReceivers().find(r => r.track.id === event.track.id);
                 if (receiver) {
-                    receiver.playoutDelayHint = minBufferCheckbox.checked ? 0 : null;
+                    receiver.playoutDelayHint = 0;
                 }
 
                 const newAudio = document.createElement('audio');
