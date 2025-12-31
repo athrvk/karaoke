@@ -47,11 +47,7 @@
                 <div class="settings-group">
                     <label class="settings-label" for="sampleRate">Sample Rate</label>
                     <select id="sampleRate" class="settings-select">
-                        <option value="default">Default</option>
-                        <option value="48000" selected>48 kHz</option>
-                        <option value="44100">44.1 kHz</option>
-                        <option value="22050">22.05 kHz</option>
-                        <option value="16000">16 kHz</option>
+                        <option value="default" selected>Default</option>
                     </select>
                 </div>
             </div>
@@ -333,6 +329,38 @@
             document.getElementById(id).addEventListener('change', applySettings);
         });
 
+        function updateSampleRateList(stream) {
+            const select = document.getElementById('sampleRate');
+            if (select.options.length > 1) return; // Already populated
+
+            const track = stream.getAudioTracks()[0];
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            const settings = track.getSettings();
+            
+            const candidates = [96000, 48000, 44100, 22050, 16000, 8000];
+            const supported = new Set();
+            
+            if (settings.sampleRate) supported.add(settings.sampleRate);
+            
+            if (capabilities.sampleRate) {
+                candidates.forEach(rate => {
+                    if (rate >= capabilities.sampleRate.min && rate <= capabilities.sampleRate.max) {
+                        supported.add(rate);
+                    }
+                });
+            } else {
+                candidates.forEach(rate => supported.add(rate));
+            }
+            
+            const sorted = Array.from(supported).sort((a, b) => b - a);
+            sorted.forEach(rate => {
+                const option = document.createElement('option');
+                option.value = rate;
+                option.textContent = `${rate/1000} kHz`;
+                select.appendChild(option);
+            });
+        }
+
         startBtn.addEventListener('click', async () => {
             if (isStreaming) {
                 location.reload();
@@ -369,6 +397,8 @@
                     audio: audioConstraints,
                     video: false
                 });
+
+                updateSampleRateList(micStream);
 
                 // OPTIMIZATION: Skip audio processing entirely when echo is disabled
                 // This saves 5-15ms latency by avoiding Web Audio API overhead
