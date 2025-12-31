@@ -34,13 +34,21 @@
             </div>
         </div>
 
-        <div class="settings-panel" style="margin-bottom: 20px;">
-            <div class="setting-item">
-                <div class="checkbox-wrapper">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <span class="settings-icon">⚙️</span>
+                <h3 class="settings-title">Playback Configuration</h3>
+            </div>
+
+            <div class="settings-section">
+                <label class="control-switch">
                     <input type="checkbox" id="minBuffer">
-                    <label class="checkbox-label" for="minBuffer">Minimize Buffering</label>
-                </div>
-                <div class="settings-desc">Forces immediate playback. Reduces latency but may cause stuttering.</div>
+                    <span class="switch-slider"></span>
+                    <span class="switch-content">
+                        <span class="switch-label">Minimize Buffering</span>
+                        <span class="switch-hint">Forces immediate playback for lower latency</span>
+                    </span>
+                </label>
             </div>
         </div>
 

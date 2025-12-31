@@ -41,56 +41,76 @@
         </div>
 
         <div class="settings-panel">
-            <div class="settings-title">Audio Settings</div>
-            
-            <div class="settings-group">
-                <label class="settings-label" for="sampleRate">Sample Rate</label>
-                <select id="sampleRate" class="settings-select">
-                    <option value="default" selected>Default</option>
-                </select>
-                <div class="settings-desc">Higher rates improve quality but increase bandwidth usage.</div>
+            <div class="settings-header">
+                <span class="settings-icon">⚙️</span>
+                <h3 class="settings-title">Audio Configuration</h3>
             </div>
 
-            <div class="settings-group">
-                <label class="settings-label" for="packetTime">Packet Size (ptime)</label>
-                <select id="packetTime" class="settings-select">
-                    <option value="10">10ms (Lowest Latency)</option>
-                    <option value="20" selected>20ms (Standard)</option>
-                    <option value="40">40ms (High Efficiency)</option>
-                </select>
-                <div class="settings-desc">Smaller packets reduce delay but increase CPU/Network load.</div>
+            <div class="settings-section">
+                <div class="settings-section-title">Quality</div>
+                
+                <div class="control-item">
+                    <div class="control-label-row">
+                        <label class="control-label" for="sampleRate">Sample Rate</label>
+                        <span class="control-badge">Auto-detected</span>
+                    </div>
+                    <select id="sampleRate" class="control-select">
+                        <option value="default" selected>Default</option>
+                    </select>
+                    <p class="control-hint">Higher rates improve quality but increase bandwidth usage.</p>
+                </div>
+
+                <div class="control-item">
+                    <div class="control-label-row">
+                        <label class="control-label" for="packetTime">Packet Size</label>
+                    </div>
+                    <select id="packetTime" class="control-select">
+                        <option value="10">10ms · Lowest Latency</option>
+                        <option value="20" selected>20ms · Standard</option>
+                        <option value="40">40ms · High Efficiency</option>
+                    </select>
+                    <p class="control-hint">Smaller packets reduce delay but increase CPU load.</p>
+                </div>
             </div>
 
-            <div class="setting-item">
-                <div class="checkbox-wrapper">
+            <div class="settings-section">
+                <div class="settings-section-title">Performance</div>
+                
+                <label class="control-switch">
                     <input type="checkbox" id="lowLatency" checked>
-                    <label class="checkbox-label" for="lowLatency">Low Latency Mode</label>
-                </div>
-                <div class="settings-desc">Reduces audio buffer for real-time sync. May cause stuttering on unstable networks.</div>
-            </div>
-            
-            <div class="setting-item">
-                <div class="checkbox-wrapper">
+                    <span class="switch-slider"></span>
+                    <span class="switch-content">
+                        <span class="switch-label">Low Latency Mode</span>
+                        <span class="switch-hint">Reduces buffer for real-time sync</span>
+                    </span>
+                </label>
+
+                <label class="control-switch">
                     <input type="checkbox" id="echoCancellation" checked>
-                    <label class="checkbox-label" for="echoCancellation">Echo Cancellation</label>
-                </div>
-                <div class="settings-desc">Prevents feedback. Disable for lower latency if using headphones.</div>
-            </div>
+                    <span class="switch-slider"></span>
+                    <span class="switch-content">
+                        <span class="switch-label">Echo Cancellation</span>
+                        <span class="switch-hint">Prevents feedback loops</span>
+                    </span>
+                </label>
 
-            <div class="setting-item">
-                <div class="checkbox-wrapper">
+                <label class="control-switch">
                     <input type="checkbox" id="noiseSuppression">
-                    <label class="checkbox-label" for="noiseSuppression">Noise Suppression</label>
-                </div>
-                <div class="settings-desc">Removes background noise. Disable for purer audio.</div>
-            </div>
+                    <span class="switch-slider"></span>
+                    <span class="switch-content">
+                        <span class="switch-label">Noise Suppression</span>
+                        <span class="switch-hint">Removes background noise</span>
+                    </span>
+                </label>
 
-            <div class="setting-item">
-                <div class="checkbox-wrapper">
+                <label class="control-switch">
                     <input type="checkbox" id="autoGainControl" checked>
-                    <label class="checkbox-label" for="autoGainControl">Auto Gain Control</label>
-                </div>
-                <div class="settings-desc">Adjusts volume automatically. Disable for consistent levels.</div>
+                    <span class="switch-slider"></span>
+                    <span class="switch-content">
+                        <span class="switch-label">Auto Gain Control</span>
+                        <span class="switch-hint">Adjusts volume automatically</span>
+                    </span>
+                </label>
             </div>
         </div>
 

@@ -7,17 +7,18 @@ A high-performance, low-latency peer-to-peer audio streaming application. Turn a
 
 ## ✨ Features
 
-- 🎙️ **Ultra-Low Latency**: Direct P2P WebRTC connection (audio doesn't go through the server).
+- 🎙️ **Ultra-Low Latency**: Direct P2P WebRTC connection with configurable packet sizes (down to 10ms).
+- 👥 **Multi-Mic Support**: Connect multiple phones as microphones to a single speaker for group karaoke.
 - 📱 **Fully Responsive**: Optimized UI for Mobile, Tablet, Desktop, and **TV** interfaces.
-- 🔊 **One-to-Many**: One singer can stream to multiple listener devices simultaneously.
+- 🎛️ **Advanced Audio Control**:
+  - **Sample Rate**: Dynamic selection based on device capabilities (up to 96kHz).
+  - **Packet Size**: Adjustable ptime (10ms, 20ms, 40ms) to balance latency vs. bandwidth.
+  - **Processing**: Toggleable Echo Cancellation, Noise Suppression, and Auto Gain Control.
 - 🎵 **Audio Effects**: Optional toggleable **Reverb/Echo** effect for karaoke vibes.
+- 📊 **Real-Time Monitoring**: Live latency stats for each connected microphone.
 - 🔒 **Room System**: Private rooms with unique IDs for isolated sessions.
 - 🔗 **Easy Connection**: QR Code generation for instant mobile pairing.
 - 🛠️ **Smart Autoplay**: "Silent Audio" unlock mechanism to bypass browser autoplay restrictions.
-- ⚡ **Optimized Audio**: 
-  - 48kHz Mono (lower bandwidth, lower latency).
-  - Disabled browser processing (echo cancellation/noise suppression) for raw audio.
-  - Tuned Opus codec settings.
 
 ## 🏗️ Architecture
 
@@ -87,15 +88,47 @@ graph TD
    - Click "Singer Mode".
    - Grant microphone permissions.
    - Click **"Start Performance"**.
-5. **Sing!**: Your voice will be streamed instantly to the speaker. Toggle "Enable Reverb" for effects.
+5. **Sing!**: Your voice will be streamed instantly to the speaker.
+   - **Optimize Latency**: Use the settings panel to enable "Low Latency Mode" and select "10ms" packet size.
+   - **Monitor Quality**: The speaker screen shows the real-time latency of your connection.
 
 ## 🛠️ Technical Details
 
-### Audio Pipeline
-1. **Capture**: `navigator.mediaDevices.getUserMedia` (Mono, 48kHz, No Processing).
-2. **Processing (Optional)**: Web Audio API `DelayNode` + `GainNode` for Reverb.
-3. **Encoding**: Opus Codec (CBR, 510kbps max bitrate).
-4. **Transport**: WebRTC `RTCPeerConnection` (UDP).
+### Audio Pipeline (Microphone → Speaker)
+
+**1. Capture**
+- `navigator.mediaDevices.getUserMedia` with user-configurable constraints:
+  - Sample Rate: Auto-detected from device capabilities (8kHz - 96kHz)
+  - Channels: Mono (1 channel) for reduced bandwidth
+  - Latency Hint: 0ms when Low Latency Mode enabled
+  - Processing: Echo Cancellation, Noise Suppression, Auto Gain Control (user toggleable)
+
+**2. Processing (Optional)**
+- When Reverb enabled: Web Audio API processing chain
+  - `DelayNode` (300ms delay) with feedback loop
+  - Wet/Dry signal mixing via `GainNode`
+  - Real-time toggle without stream interruption
+- When disabled: Direct pass-through for lowest latency
+
+**3. Encoding**
+- Opus Codec with optimized parameters:
+  - CBR (Constant Bitrate) mode
+  - Max bitrate: 510kbps
+  - Mono encoding
+  - DTX disabled (continuous transmission)
+  - Configurable ptime: 10ms / 20ms / 40ms (packet duration)
+
+**4. Transport**
+- WebRTC `RTCPeerConnection` over UDP
+- Optimized ICE configuration (candidate pool, max-bundle policy)
+- SDP manipulation for ptime attribute injection
+- Direct P2P connection after signaling
+
+**5. Playback**
+- Dynamic `HTMLAudioElement` per connected microphone
+- Configurable `playoutDelayHint` (0 for minimum buffering)
+- Real-time latency monitoring via WebRTC stats
+- Automatic audio mixing of multiple sources
 
 ### Project Structure
 ```
