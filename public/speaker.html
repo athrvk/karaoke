@@ -34,6 +34,16 @@
             </div>
         </div>
 
+        <div class="settings-panel" style="margin-bottom: 20px;">
+            <div class="setting-item">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="minBuffer">
+                    <label class="checkbox-label" for="minBuffer">Minimize Buffering</label>
+                </div>
+                <div class="settings-desc">Forces immediate playback. Reduces latency but may cause stuttering.</div>
+            </div>
+        </div>
+
         <div class="mics-section" id="micsSection" style="display: none;">
             <h3>Live Performers</h3>
             <div class="mic-count" id="micCount">0</div>
@@ -60,6 +70,7 @@
         const micsSection = document.getElementById('micsSection');
         const micCount = document.getElementById('micCount');
         const micList = document.getElementById('micList');
+        const minBufferCheckbox = document.getElementById('minBuffer');
 
         // Get room ID from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -78,6 +89,7 @@
 
         let peerConnections = {};
         let audioElements = {};
+        let latencyInterval = null;
         const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         let audioUnlocked = false;
 
@@ -100,6 +112,20 @@
         // Try to unlock immediately on page load
         unlockAudio();
 
+        // Handle buffer setting change
+        minBufferCheckbox.addEventListener('change', () => {
+            const hint = minBufferCheckbox.checked ? 0 : null;
+            console.log(`Setting playoutDelayHint to ${hint}`);
+            
+            Object.values(peerConnections).forEach(pc => {
+                pc.getReceivers().forEach(receiver => {
+                    if (receiver.track.kind === 'audio') {
+                        receiver.playoutDelayHint = hint;
+                    }
+                });
+            });
+        });
+
         // Update mic list display
         function updateMicList() {
             const count = Object.keys(peerConnections).length;
@@ -108,23 +134,76 @@
             if (count === 0) {
                 micsSection.style.display = 'none';
                 micList.innerHTML = '';
+                if (latencyInterval) {
+                    clearInterval(latencyInterval);
+                    latencyInterval = null;
+                }
             } else {
                 micsSection.style.display = 'block';
-                micList.innerHTML = '';
                 
-                Object.keys(peerConnections).forEach((micId, index) => {
-                    const pc = peerConnections[micId];
-                    const micItem = document.createElement('div');
-                    micItem.className = 'mic-item';
-                    micItem.innerHTML = `
-                        <div class="mic-item-icon">🎙️</div>
-                        <div class="mic-item-info">
-                            <div class="mic-item-status">${pc.connectionState || 'connecting'}</div>
-                            <div class="mic-item-id">Mic #${index + 1}</div>
-                        </div>
-                    `;
-                    micList.appendChild(micItem);
-                });
+                // Only rebuild list if number of mics changed to avoid flickering
+                // But we need to update latency values dynamically
+                if (micList.children.length !== count) {
+                    micList.innerHTML = '';
+                    Object.keys(peerConnections).forEach((micId, index) => {
+                        const pc = peerConnections[micId];
+                        const micItem = document.createElement('div');
+                        micItem.className = 'mic-item';
+                        micItem.id = `mic-item-${micId}`;
+                        micItem.innerHTML = `
+                            <div class="mic-item-icon">🎙️</div>
+                            <div class="mic-item-info">
+                                <div class="mic-item-status">${pc.connectionState || 'connecting'}</div>
+                                <div class="mic-item-id">Mic #${index + 1}</div>
+                                <div class="mic-item-latency" id="latency-${micId}" style="font-size: 0.8rem; color: #666;">Latency: -- ms</div>
+                            </div>
+                        `;
+                        micList.appendChild(micItem);
+                    });
+                }
+
+                // Start polling for stats if not already running
+                if (!latencyInterval) {
+                    latencyInterval = setInterval(updateLatencyStats, 1000);
+                }
+            }
+        }
+
+        async function updateLatencyStats() {
+            for (const [micId, pc] of Object.entries(peerConnections)) {
+                if (pc.connectionState !== 'connected') continue;
+
+                try {
+                    const stats = await pc.getStats();
+                    let latency = null;
+
+                    stats.forEach(report => {
+                        if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                            // Calculate jitter buffer delay
+                            if (report.jitterBufferDelay && report.jitterBufferEmittedCount) {
+                                const jitterDelay = report.jitterBufferDelay / report.jitterBufferEmittedCount;
+                                latency = Math.round(jitterDelay * 1000);
+                            }
+                        }
+                        // Fallback to round trip time if available (less accurate for one-way latency but useful)
+                        if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+                            if (!latency) {
+                                latency = Math.round(report.currentRoundTripTime * 1000 / 2); // Estimate one-way
+                            }
+                        }
+                    });
+
+                    const latencyEl = document.getElementById(`latency-${micId}`);
+                    if (latencyEl) {
+                        latencyEl.textContent = latency !== null ? `Latency: ~${latency} ms` : 'Latency: --';
+                        // Color code latency
+                        if (latency < 50) latencyEl.style.color = '#28cd41'; // Green
+                        else if (latency < 150) latencyEl.style.color = '#ff9500'; // Orange
+                        else latencyEl.style.color = '#ff3b30'; // Red
+                    }
+                } catch (e) {
+                    console.error('Error getting stats:', e);
+                }
             }
         }
 
@@ -154,6 +233,12 @@
                 console.log('Received audio track from mic');
                 statusText.textContent = "🎵 Live Performance";
                 
+                // Apply buffer setting immediately
+                const receiver = pc.getReceivers().find(r => r.track.id === event.track.id);
+                if (receiver) {
+                    receiver.playoutDelayHint = minBufferCheckbox.checked ? 0 : null;
+                }
+
                 const newAudio = document.createElement('audio');
                 newAudio.autoplay = true;
                 newAudio.playsInline = true;
