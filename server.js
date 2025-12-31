@@ -30,9 +30,15 @@ const io = new Server(server, {
     }
 });
 
-// Serve static files from 'public' directory
+// Serve static files from 'public' directory with no caching
 app.use(express.static('public', {
-    etag: true,    // Enable ETags
+    etag: false,
+    maxAge: 0,
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
 }));
 
 io.on('connection', (socket) => {
