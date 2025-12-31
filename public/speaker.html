@@ -176,10 +176,10 @@
                         else if (latency < 150) latencyEl.style.color = '#ff9500'; // Orange
                         else latencyEl.style.color = '#ff3b30'; // Red
                         
-                        // AUTO-RESET: If latency exceeds 400ms, recreate connection to clear buffer
-                        if (latency > 400) {
-                            console.warn(`High latency detected (${latency}ms), resetting connection to ${micId}`);
-                            recreateConnection(micId);
+                        // AUTO-RESTART: If latency exceeds 600ms, trigger ICE restart to renegotiate
+                        if (latency > 600 && !pc.iceRestartPending) {
+                            console.warn(`High latency detected (${latency}ms), triggering ICE restart for ${micId}`);
+                            restartIceConnection(micId);
                         }
                     }
                 } catch (e) {
@@ -188,26 +188,33 @@
             }
         }
         
-        // Recreate peer connection to reset jitter buffer
-        async function recreateConnection(micId) {
+        // Restart ICE connection to renegotiate without losing the peer connection
+        async function restartIceConnection(micId) {
             const pc = peerConnections[micId];
-            if (!pc) return;
+            if (!pc || pc.iceRestartPending) return;
             
-            // Close and clean up old connection
-            pc.close();
-            delete peerConnections[micId];
-            if (audioElements[micId]) {
-                audioElements[micId].remove();
-                delete audioElements[micId];
+            try {
+                pc.iceRestartPending = true;
+                console.log(`Restarting ICE for ${micId}...`);
+                
+                // Create a new offer with ICE restart
+                const offer = await pc.createOffer({ iceRestart: true });
+                await pc.setLocalDescription(offer);
+                
+                // Send the offer to the mic to renegotiate
+                socket.emit('offer', { target: micId, sdp: offer });
+                
+                // Reset flag after 5 seconds
+                setTimeout(() => {
+                    if (pc) pc.iceRestartPending = false;
+                }, 5000);
+                
+                console.log(`ICE restart initiated for ${micId}`);
+            } catch (err) {
+                console.error(`Error restarting ICE for ${micId}:`, err);
+                if (pc) pc.iceRestartPending = false;
             }
-            
-            // Remove from UI temporarily
-            const micItem = document.getElementById(`mic-item-${micId}`);
-            if (micItem) micItem.remove();
-            
-            updateMicList();
-            
-            console.log(`Connection reset for ${micId}, waiting for reconnection...`);
+        }
         }
 
         // Auto-register speaker on connect and start listening immediately

@@ -491,6 +491,23 @@
             }
         });
 
+        socket.on('offer', async (payload) => {
+            // Handle ICE restart from speaker (when latency gets too high)
+            const pc = peerConnections[payload.sender];
+            if (pc) {
+                try {
+                    console.log('Received offer from speaker (ICE restart)');
+                    await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('answer', { target: payload.sender, sdp: answer });
+                    console.log('Sent answer for ICE restart');
+                } catch (err) {
+                    console.error('Error handling offer:', err);
+                }
+            }
+        });
+
         socket.on('answer', async (payload) => {
             const pc = peerConnections[payload.sender];
             if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
