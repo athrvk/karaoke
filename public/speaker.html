@@ -41,7 +41,7 @@
             <div class="mic-list" id="micList"></div>
         </div>
 
-        <audio id="remoteAudio" autoplay playsinline muted></audio>
+        <div id="audioContainer"></div>
         <audio id="silentAudio" loop playsinline style="display:none;">
             <source
                 src="data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAOAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQAAAAAAtAAAAABAAAAAABAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -55,7 +55,7 @@
         const socket = io();
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
-        const remoteAudio = document.getElementById('remoteAudio');
+        const audioContainer = document.getElementById('audioContainer');
         const silentAudio = document.getElementById('silentAudio');
         const micsSection = document.getElementById('micsSection');
         const micCount = document.getElementById('micCount');
@@ -77,6 +77,7 @@
         });
 
         let peerConnections = {};
+        let audioElements = {};
         const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         let audioUnlocked = false;
 
@@ -152,20 +153,25 @@
             pc.ontrack = (event) => {
                 console.log('Received audio track from mic');
                 statusText.textContent = "🎵 Live Performance";
-                remoteAudio.srcObject = event.streams[0];
-                // Start muted to satisfy autoplay policy
-                remoteAudio.muted = true;
+                
+                const newAudio = document.createElement('audio');
+                newAudio.autoplay = true;
+                newAudio.playsInline = true;
+                newAudio.muted = true; // Start muted
+                newAudio.srcObject = event.streams[0];
+                audioContainer.appendChild(newAudio);
+                audioElements[micId] = newAudio;
                 
                 // Try to play
-                const playPromise = remoteAudio.play();
+                const playPromise = newAudio.play();
                 if (playPromise !== undefined) {
                     playPromise
                         .then(() => {
                             console.log('Audio playing successfully (muted)');
                             // Unmute after a short delay
                             setTimeout(() => {
-                                remoteAudio.muted = false;
-                                remoteAudio.volume = 1.0;
+                                newAudio.muted = false;
+                                newAudio.volume = 1.0;
                                 console.log('Audio unmuted - you should hear it now');
                             }, 500);
                         })
@@ -176,9 +182,9 @@
                             
                             // Play on next user interaction
                             const playOnInteraction = () => {
-                                remoteAudio.muted = false;
-                                remoteAudio.volume = 1.0;
-                                remoteAudio.play()
+                                newAudio.muted = false;
+                                newAudio.volume = 1.0;
+                                newAudio.play()
                                     .then(() => {
                                         statusText.textContent = "🎵 Live Performance";
                                     })
@@ -208,10 +214,13 @@
                 if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                     pc.close();
                     delete peerConnections[micId];
+                    if (audioElements[micId]) {
+                        audioElements[micId].remove();
+                        delete audioElements[micId];
+                    }
                     updateMicList();
                     if (Object.keys(peerConnections).length === 0) {
                         statusText.textContent = "Waiting for singer...";
-                        remoteAudio.srcObject = null;
                     }
                 }
             };
@@ -251,10 +260,13 @@
             if (peerConnections[userId]) {
                 peerConnections[userId].close();
                 delete peerConnections[userId];
+                if (audioElements[userId]) {
+                    audioElements[userId].remove();
+                    delete audioElements[userId];
+                }
                 updateMicList();
                 if (Object.keys(peerConnections).length === 0) {
                     statusText.textContent = "Waiting for singer...";
-                    remoteAudio.srcObject = null;
                 }
             }
         });
